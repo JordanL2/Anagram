@@ -484,6 +484,7 @@ basis
 basket
 basketball
 bass
+bastard
 bat
 batch
 bath
@@ -2081,6 +2082,8 @@ fare
 farm
 farmer
 farming
+fart
+farting
 fascinating
 fashion
 fast
@@ -2667,7 +2670,7 @@ humanities
 humanity
 humans
 humidity
-humor
+humour
 hundred
 hung
 hunger
@@ -4851,6 +4854,8 @@ shipment
 shipping
 shirt
 shit
+shitting
+shitty
 shock
 shoe
 shoes
