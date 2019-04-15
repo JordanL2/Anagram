@@ -2,6 +2,7 @@
 
 import sys
 import multiprocessing
+from queue import Empty
 
 
 class AnagramFinder():
@@ -12,23 +13,21 @@ class AnagramFinder():
         self.thread_count = 10
         multiprocessing.set_start_method('fork')
 
+        # Load dictionary of words
         self.words = []
-        letter_frequency = {}
         f = open(filename)
         for line in f:
             word = line.strip()
             if len([l for l in word if l not in self.allowed_letters]) > 0:
                 raise Exception("Invalid word in dictionary: '{}'".format(word))
             self.words.append(word)
-            for letter in word:
-                if letter not in letter_frequency:
-                    letter_frequency[letter] = 0
-                letter_frequency[letter] += 1
         f.close()
-        self.words.sort(key=len, reverse=True)
         self.word_count = len(self.words)
 
-        # Index of wordlist by length, so when we only have eg 5 letters,
+        # Sort the word list by word length, longest words first
+        self.words.sort(key=len, reverse=True)
+
+        # Index of word list by length, so when we only have eg 5 letters,
         # we can jump to the part of the list with words of that length
         self.word_length_index = {}
         for i, word in enumerate(self.words):
@@ -58,7 +57,6 @@ class AnagramFinder():
         max_t = len(args)
         threads = []
         queue = multiprocessing.Queue()
-        result = []
         for t in range(0, max_t):
             thread = multiprocessing.Process(
                 target=target,
@@ -68,16 +66,17 @@ class AnagramFinder():
             threads.append(thread)
 
         # Read results from threads while waiting for them to finish
+        result = []
         for thread in threads:
             while thread.is_alive():
                 while True:
                     try:
                         r = queue.get(block=False)
                         result.append(r)
-                    except:
+                    except Empty:
                         break
 
-        # Add the last of the queue to the result list, and return them
+        # Add the last of the queue to the results, and return them
         while not queue.empty():
             result.append(queue.get())
         return result
@@ -88,16 +87,22 @@ class AnagramFinder():
             queue.put(r)
 
     def search_wordlist(self, letter_map, t, max_t, start, display=None):
+        # Get total number of letters we're searching
         l = self.letter_map_count(letter_map)
         if l < self.shortest_word_length:
+            # If the number of letters is shorter than the shortest
+            # word, we can stop immediately
             return []
+        # If possible, we can jump to the part of the word list with
+        # the words that have the number of letters that we're searching
+        # so we don't waste time checking words that can't possibly be found
         if l in self.word_length_index:
             if self.word_length_index[l] > start:
                 rem = start % max_t
                 start = self.word_length_index[l]
                 start_rem = start % max_t
-                rem_diff = start_rem - rem
-                start -= rem_diff
+                rem_diff = rem - start_rem
+                start += rem_diff
 
         result = []
 
@@ -105,11 +110,17 @@ class AnagramFinder():
             word = self.words[i]
             if display is not None:
                 display(t, i + 1, self.word_count)
+            # See if this word can be found in the letters we're searching,
+            # and if so, what letters are left over afterwards
             found, letters_left = self.word_in_letters(word, letter_map)
             if found:
                 if self.letter_map_count(letters_left) == 0:
+                    # There are no remaining letters, so we have a result
                     result.append([word])
                 else:
+                    # There are remaining letters, so we have to see what words
+                    # can be found in them. If results are found, then for each
+                    # result we combine it with the word we've found in this call
                     next_find = self.search_wordlist(letters_left, 0, 1, i)
                     for n in next_find:
                         result.append([word] + n)
