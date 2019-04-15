@@ -66,7 +66,6 @@ class AnagramFinder():
         # Read results from threads while waiting for them to finish
         for thread in threads:
             while thread.is_alive():
-                thread.join(timeout=1)
                 while True:
                     try:
                         r = queue.get(block=False)
@@ -148,7 +147,7 @@ def output(t, i, n):
 
 if __name__ == '__main__':
     words = ''.join(sys.argv[1:])
-    a = AnagramFinder('britwordlist.txt')
+    a = AnagramFinder('words.txt')
     results = a.find(words, output)
     print()
     for result in results:
