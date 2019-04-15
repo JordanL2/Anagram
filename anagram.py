@@ -17,6 +17,8 @@ class AnagramFinder():
         f = open(filename)
         for line in f:
             word = line.strip()
+            if len([l for l in word if l not in self.allowed_letters]) > 0:
+                raise Exception("Invalid word in dictionary: '{}'".format(word))
             self.words.append(word)
             for letter in word:
                 if letter not in letter_frequency:
@@ -51,7 +53,8 @@ class AnagramFinder():
         # Start the threads
         max_t = self.thread_count
         threads = []
-        queue = multiprocessing.Queue()
+        queue = multiprocessing.Queue(30000000)
+        result = []
         for t in range(0, max_t):
             thread = multiprocessing.Process(
                 target=self.do_thread,
@@ -60,17 +63,24 @@ class AnagramFinder():
             thread.start()
             threads.append(thread)
         for thread in threads:
-            thread.join()
+            while thread.is_alive():
+                thread.join(timeout=1)
+                while True:
+                    try:
+                        r = queue.get(block=False)
+                        result.append(r)
+                    except:
+                        break
 
         # Combine and return the results
-        result = []
         while not queue.empty():
-            result.extend(queue.get())
+            result.append(queue.get())
         return result
 
     def do_thread(self, queue, letter_map, t, max_t, display):
         result = self.search_wordlist(letter_map, t, max_t, t, display)
-        queue.put(result)
+        for r in result:
+            queue.put(r)
 
     def search_wordlist(self, letter_map, t, max_t, start, display=None):
         l = self.letter_map_count(letter_map)
@@ -136,7 +146,7 @@ def output(t, i, n):
 
 if __name__ == '__main__':
     words = ''.join(sys.argv[1:])
-    a = AnagramFinder('words.txt')
+    a = AnagramFinder('britwordlist.txt')
     results = a.find(words, output)
     print()
     for result in results:
