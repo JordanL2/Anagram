@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import sys
+import multiprocessing
 
 
 class AnagramFinder():
@@ -31,7 +32,7 @@ class AnagramFinder():
                 self.word_length_index[l] = i
                 self.shortest_word_length = l
 
-        # For each word, makes a list of each letter in the word and the
+        # For each word, makes a mapping of each letter in the word and the
         # number of times it occurs
         self.word_letter_map = {}
         for word in self.words:
@@ -40,28 +41,51 @@ class AnagramFinder():
     def find(self, letters, display=None):
         letters = list(letters.lower())
         letters = [l for l in letters if l in self.allowed_letters]
-        return self.search_wordlist(self.word_to_letter_map(letters), 0, display)
+        letter_map = self.word_to_letter_map(letters)
 
-    def search_wordlist(self, letter_map, start, display=None):
+        max_t = 10
+        threads = []
+        multiprocessing.set_start_method('fork')
+        queue = multiprocessing.Queue()
+        for t in range(0, max_t):
+            thread = multiprocessing.Process(target=self.do_thread, args=(queue, letter_map, t, max_t, display))
+            thread.start()
+            threads.append(thread)
+        for thread in threads:
+            thread.join()
+        result = []
+        while not queue.empty():
+            result.extend(queue.get())
+        return result
+
+    def do_thread(self, queue, letter_map, t, max_t, display):
+        result = self.search_wordlist(letter_map, t, max_t, t, display)
+        queue.put(result)
+
+    def search_wordlist(self, letter_map, t, max_t, start, display=None):
         l = self.letter_map_count(letter_map)
         if l < self.shortest_word_length:
             return []
         if l in self.word_length_index:
             if self.word_length_index[l] > start:
+                rem = start % max_t
                 start = self.word_length_index[l]
+                start_rem = start % max_t
+                rem_diff = start_rem - rem
+                start -= rem_diff
 
         result = []
 
-        for i in range(start, self.word_count):
+        for i in range(start, self.word_count, max_t):
             word = self.words[i]
             if display is not None:
-                display(i + 1, self.word_count)
+                display(t, i + 1, self.word_count)
             found, letters_left = self.word_in_letters(word, letter_map)
             if found:
                 if self.letter_map_count(letters_left) == 0:
                     result.append([word])
                 else:
-                    next_find = self.search_wordlist(letters_left, i)
+                    next_find = self.search_wordlist(letters_left, 0, 1, i)
                     for n in next_find:
                         result.append([word] + n)
 
@@ -89,11 +113,9 @@ class AnagramFinder():
         return sum(letter_map.values())
 
 
-def output(i, n):
-    line = "{}%".format(round(i / n * 100, 3))
-    sys.stdout.write('\r')
-    sys.stdout.write(line)
-    sys.stdout.write('\033[0K')
+def output(t, i, n):
+    line = "{}%".format(round(i / n * 100))
+    sys.stdout.write('\r' + '\033[' + str(t * 6) + 'C' + line)
     sys.stdout.flush()
 
 
