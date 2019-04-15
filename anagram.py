@@ -31,21 +31,19 @@ class AnagramFinder():
                 self.word_length_index[l] = i
                 self.shortest_word_length = l
 
-        # Mapping for each word to an ordered version of it, with least common letters
-        # first, to optimise the word/letter comparison - more likely to fail earlier
-        self.words_ordered = {}
+        # For each word, makes a list of each letter in the word and the
+        # number of times it occurs
+        self.word_letter_map = {}
         for word in self.words:
-            ordered_word = list(word)
-            ordered_word.sort(key=lambda x: letter_frequency[x])
-            self.words_ordered[word] = ''.join(ordered_word)
+            self.word_letter_map[word] = self.word_to_letter_map(word)
 
     def find(self, letters, display=None):
         letters = list(letters.lower())
         letters = [l for l in letters if l in self.allowed_letters]
-        return self.search_wordlist(letters, 0, display)
+        return self.search_wordlist(self.word_to_letter_map(letters), 0, display)
 
-    def search_wordlist(self, letters, start, display=None):
-        l = len(letters)
+    def search_wordlist(self, letter_map, start, display=None):
+        l = self.letter_map_count(letter_map)
         if l < self.shortest_word_length:
             return []
         if l in self.word_length_index:
@@ -58,9 +56,9 @@ class AnagramFinder():
             word = self.words[i]
             if display is not None:
                 display(i + 1, self.word_count)
-            found, letters_left = self.word_in_letters(word, letters)
+            found, letters_left = self.word_in_letters(word, letter_map)
             if found:
-                if len(letters_left) == 0:
+                if self.letter_map_count(letters_left) == 0:
                     result.append([word])
                 else:
                     next_find = self.search_wordlist(letters_left, i)
@@ -69,14 +67,26 @@ class AnagramFinder():
 
         return result
 
-    def word_in_letters(self, word, letters):
-        letters = letters.copy()
-        for letter in self.words_ordered[word]:
-            if letter in letters:
-                letters.remove(letter)
-            else:
+    def word_in_letters(self, word, letter_map):
+        this_word_letter_map = self.word_letter_map[word]
+        for letter in this_word_letter_map.keys():
+            if letter not in letter_map or this_word_letter_map[letter] > letter_map[letter]:
                 return False, None
-        return True, letters
+        letters_left = letter_map.copy()
+        for letter in this_word_letter_map.keys():
+            letters_left[letter] -= this_word_letter_map[letter]
+        return True, letters_left
+
+    def word_to_letter_map(self, word):
+        letter_map = {}
+        for letter in word:
+            if letter not in letter_map:
+                letter_map[letter] = 0
+            letter_map[letter] += 1
+        return letter_map
+
+    def letter_map_count(self, letter_map):
+        return sum(letter_map.values())
 
 
 def output(i, n):
