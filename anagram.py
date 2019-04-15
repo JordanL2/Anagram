@@ -53,7 +53,7 @@ class AnagramFinder():
         # Start the threads
         max_t = self.thread_count
         threads = []
-        queue = multiprocessing.Queue(30000000)
+        queue = multiprocessing.Queue()
         result = []
         for t in range(0, max_t):
             thread = multiprocessing.Process(
@@ -62,6 +62,8 @@ class AnagramFinder():
                 daemon=True)
             thread.start()
             threads.append(thread)
+
+        # Read results from threads while waiting for them to finish
         for thread in threads:
             while thread.is_alive():
                 thread.join(timeout=1)
@@ -72,7 +74,7 @@ class AnagramFinder():
                     except:
                         break
 
-        # Combine and return the results
+        # Add the last of the queue to the result list, and return them
         while not queue.empty():
             result.append(queue.get())
         return result
