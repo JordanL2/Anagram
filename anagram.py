@@ -54,8 +54,8 @@ class AnagramFinder():
         queue = multiprocessing.Queue()
         for t in range(0, max_t):
             thread = multiprocessing.Process(
-                target=self.do_thread, 
-                args=(queue, letter_map, t, max_t, display), 
+                target=self.do_thread,
+                args=(queue, letter_map, t, max_t, display),
                 daemon=True)
             thread.start()
             threads.append(thread)
