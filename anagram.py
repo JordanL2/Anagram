@@ -50,15 +50,19 @@ class AnagramFinder():
         # Turn string into a map of each letter and the number of times it occurs
         letter_map = self.word_to_letter_map(letters)
 
-        # Start the threads
-        max_t = self.thread_count
+        args = [[letter_map, display]] * self.thread_count
+        return self.multithreaded_job(self.do_thread, args)
+
+    def multithreaded_job(self, target, args):
+        # Start a thread for each set of arguments
+        max_t = len(args)
         threads = []
         queue = multiprocessing.Queue()
         result = []
         for t in range(0, max_t):
             thread = multiprocessing.Process(
-                target=self.do_thread,
-                args=(queue, letter_map, t, max_t, display),
+                target=target,
+                args=[t, max_t, queue] + args[t],
                 daemon=True)
             thread.start()
             threads.append(thread)
@@ -78,7 +82,7 @@ class AnagramFinder():
             result.append(queue.get())
         return result
 
-    def do_thread(self, queue, letter_map, t, max_t, display):
+    def do_thread(self, t, max_t, queue, letter_map, display):
         result = self.search_wordlist(letter_map, t, max_t, t, display)
         for r in result:
             queue.put(r)
