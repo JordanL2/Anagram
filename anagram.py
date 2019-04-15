@@ -9,6 +9,9 @@ class AnagramFinder():
     def __init__(self, filename):
         self.allowed_letters = 'abcdefghijklmnopqrstuvwxyz'
 
+        self.thread_count = 10
+        multiprocessing.set_start_method('fork')
+
         self.words = []
         letter_frequency = {}
         f = open(filename)
@@ -39,20 +42,27 @@ class AnagramFinder():
             self.word_letter_map[word] = self.word_to_letter_map(word)
 
     def find(self, letters, display=None):
-        letters = list(letters.lower())
+        # Make all letters lowercase and filter out characters that aren't allowed
+        letters = letters.lower()
         letters = [l for l in letters if l in self.allowed_letters]
+        # Turn string into a map of each letter and the number of times it occurs
         letter_map = self.word_to_letter_map(letters)
 
-        max_t = 10
+        # Start the threads
+        max_t = self.thread_count
         threads = []
-        multiprocessing.set_start_method('fork')
         queue = multiprocessing.Queue()
         for t in range(0, max_t):
-            thread = multiprocessing.Process(target=self.do_thread, args=(queue, letter_map, t, max_t, display))
+            thread = multiprocessing.Process(
+                target=self.do_thread, 
+                args=(queue, letter_map, t, max_t, display), 
+                daemon=True)
             thread.start()
             threads.append(thread)
         for thread in threads:
             thread.join()
+
+        # Combine and return the results
         result = []
         while not queue.empty():
             result.extend(queue.get())
@@ -89,6 +99,8 @@ class AnagramFinder():
                     for n in next_find:
                         result.append([word] + n)
 
+        if display is not None:
+            display(t, self.word_count, self.word_count)
         return result
 
     def word_in_letters(self, word, letter_map):
@@ -114,8 +126,11 @@ class AnagramFinder():
 
 
 def output(t, i, n):
-    line = "{}%".format(round(i / n * 100))
-    sys.stdout.write('\r' + '\033[' + str(t * 6) + 'C' + line)
+    line = '\r'
+    if t > 0:
+        line += ('\033[' + str(t * 8) + 'C')
+    line += "{:6.2f}%".format(i / n * 100)
+    sys.stdout.write(line)
     sys.stdout.flush()
 
 
