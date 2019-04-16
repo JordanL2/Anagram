@@ -95,7 +95,6 @@ class AnagramFinder():
             return []
         # If possible, we can jump to the part of the word list with
         # the words that have the number of letters that we're searching
-        # so we don't waste time checking words that can't possibly be found
         if l in self.word_length_index:
             if self.word_length_index[l] > start:
                 rem = start % max_t
@@ -119,8 +118,7 @@ class AnagramFinder():
                     result.append([word])
                 else:
                     # There are remaining letters, so we have to see what words
-                    # can be found in them. If results are found, then for each
-                    # result we combine it with the word we've found in this call
+                    # can be found in them, combining the results with this word
                     next_find = self.search_wordlist(letters_left, 0, 1, i)
                     for n in next_find:
                         result.append([word] + n)
@@ -156,14 +154,15 @@ def output(t, i, n):
     if t > 0:
         line += ('\033[' + str(t * 8) + 'C')
     line += "{:6.2f}%".format(i / n * 100)
-    sys.stdout.write(line)
-    sys.stdout.flush()
+    sys.stderr.write(line)
+    sys.stderr.flush()
 
 
 if __name__ == '__main__':
     words = ''.join(sys.argv[1:])
     a = AnagramFinder('words.txt')
     results = a.find(words, output)
-    print()
+    sys.stderr.write("\n")
+    sys.stderr.flush()
     for result in results:
         print(' '.join(result))
