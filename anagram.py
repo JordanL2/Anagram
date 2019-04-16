@@ -50,7 +50,8 @@ class AnagramFinder():
         letter_map = self.word_to_letter_map(letters)
 
         args = [[letter_map, display]] * self.thread_count
-        return self.multithreaded_job(self.do_thread, args)
+        results = self.multithreaded_job(self.do_thread, args)
+        return self.dedupe_results(results)
 
     def multithreaded_job(self, target, args):
         # Start a thread for each set of arguments
@@ -82,11 +83,17 @@ class AnagramFinder():
         return result
 
     def do_thread(self, t, max_t, queue, letter_map, display):
+        self.result_cache = {}
         result = self.search_wordlist(letter_map, t, max_t, t, display)
         for r in result:
             queue.put(r)
 
     def search_wordlist(self, letter_map, t, max_t, start, display=None):
+        key = self.letter_map_to_key(letter_map)
+        if key in self.result_cache:
+            if self.result_cache[key][1] <= start:
+                return self.result_cache[key][0]
+
         # Get total number of letters we're searching
         l = self.letter_map_count(letter_map)
         if l < self.shortest_word_length:
@@ -125,6 +132,8 @@ class AnagramFinder():
 
         if display is not None:
             display(t, self.word_count, self.word_count)
+        if max_t == 1 and (key not in self.result_cache or self.result_cache[key][1] > start):
+            self.result_cache[key] = (result, start)
         return result
 
     def word_in_letters(self, word, letter_map):
@@ -135,6 +144,8 @@ class AnagramFinder():
         letters_left = letter_map.copy()
         for letter in this_word_letter_map.keys():
             letters_left[letter] -= this_word_letter_map[letter]
+            if letters_left[letter] == 0:
+                del letters_left[letter]
         return True, letters_left
 
     def word_to_letter_map(self, word):
@@ -147,6 +158,15 @@ class AnagramFinder():
 
     def letter_map_count(self, letter_map):
         return sum(letter_map.values())
+
+    def letter_map_to_key(self, letter_map):
+        return ''.join([l * n for l, n in sorted(letter_map.items())])
+
+    def dedupe_results(self, results):
+        new_result = set()
+        for result in results:
+            new_result.add(' '.join(sorted(result)))
+        return sorted(list(new_result))
 
 
 def output(t, i, n):
@@ -165,4 +185,4 @@ if __name__ == '__main__':
     sys.stderr.write("\n")
     sys.stderr.flush()
     for result in results:
-        print(' '.join(result))
+        print(result)
