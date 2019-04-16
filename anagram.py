@@ -3,6 +3,7 @@
 import sys
 import multiprocessing
 from queue import Empty
+from time import sleep
 
 
 class AnagramFinder():
@@ -10,7 +11,7 @@ class AnagramFinder():
     def __init__(self, filename):
         self.allowed_letters = 'abcdefghijklmnopqrstuvwxyz'
 
-        self.thread_count = 10
+        self.thread_count = 6
         multiprocessing.set_start_method('fork')
 
         # Load dictionary of words
@@ -70,6 +71,7 @@ class AnagramFinder():
         result = []
         for thread in threads:
             while thread.is_alive():
+                sleep(0.01)
                 while True:
                     try:
                         r = queue.get(block=False)
