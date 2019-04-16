@@ -90,9 +90,12 @@ class AnagramFinder():
 
     def search_wordlist(self, letter_map, t, max_t, start, display=None):
         key = self.letter_map_to_key(letter_map)
+        cache_stop = None
         if key in self.result_cache:
             if self.result_cache[key][1] <= start:
                 return self.result_cache[key][0]
+            else:
+                cache_stop = self.result_cache[key][1]
 
         # Get total number of letters we're searching
         l = self.letter_map_count(letter_map)
@@ -113,6 +116,9 @@ class AnagramFinder():
         result = []
 
         for i in range(start, self.word_count, max_t):
+            if cache_stop is not None and i >= cache_stop:
+                result.extend(self.result_cache[key][0])
+                break
             word = self.words[i]
             if display is not None:
                 display(t, i + 1, self.word_count)
