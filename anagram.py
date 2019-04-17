@@ -11,11 +11,11 @@ class AnagramFinder():
     def __init__(self, filename):
         self.allowed_letters = 'abcdefghijklmnopqrstuvwxyz'
 
-        self.thread_count = 6
+        self.thread_count = 1
         multiprocessing.set_start_method('fork')
 
-        self.caching_enabled = True
-        self.cache_limit = 10000000
+        self.caching_enabled = False
+        self.cache_limit = 1000000
         self.cache_clear_fraction = 0.1
 
         # Load dictionary of words
@@ -216,11 +216,36 @@ def output(t, i, n):
     sys.stderr.write(line)
     sys.stderr.flush()
 
+def argument(arg):
+    if arg.startswith('--'):
+        if '=' in arg:
+            key = arg[2:arg.index('=')]
+            value = arg[arg.index('=') + 1:]
+            return (key, value)
+        else:
+            return (arg[2:], None)
+    return None
+
 
 if __name__ == '__main__':
-    words = ''.join(sys.argv[1:])
     a = AnagramFinder('words.txt')
-    results = a.find(words, output)
+    words = []
+    for arg in sys.argv[1:]:
+        arg_found = argument(arg)
+        if arg_found is None:
+            words.append(arg)
+        else:
+            key = arg_found[0]
+            value = arg_found[1]
+            if key == 'threads':
+                a.thread_count = int(value)
+            elif key == 'cache':
+                a.caching_enabled = True
+            elif key == 'cachesize':
+                a.cache_limit = int(value)
+            else:
+                raise Exception("No such argument: {}".format(key))
+    results = a.find(''.join(words), output)
     sys.stderr.write("\n")
     sys.stderr.flush()
     for result in results:
