@@ -74942,6 +74942,8 @@ zwitterions
 zygote
 zygotes
 zymurgy
+a
+i
 am
 an
 as
