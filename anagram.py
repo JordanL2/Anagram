@@ -243,6 +243,17 @@ if __name__ == '__main__':
                 a.caching_enabled = True
             elif key == 'cachesize':
                 a.cache_limit = int(value)
+            elif key == 'help':
+                print("Usage: ./anagram.py [<OPTIONS>] <WORDS>")
+                print()
+                print("Options:")
+                print("    --threads=<N>   - Runs N many threads, default is 1")
+                print("    --cache         - Enables cache, default is off")
+                print("    --cachesize=<N> - Sets the maximum number of results to cache, default is")
+                print("                      1000000, each result uses roughly 300 bytes memory")
+                print("    --help          - Displays this help")
+                print()
+                sys.exit()
             else:
                 raise Exception("No such argument: {}".format(key))
     results = a.find(''.join(words), output)
