@@ -45,9 +45,6 @@ class AnagramFinder():
             self.word_letter_map[word] = self.word_to_letter_map(word)
 
     def find(self, letters, display=None):
-        # Make all letters lowercase and filter out characters that aren't allowed
-        letters = letters.lower()
-        letters = [l for l in letters if l in self.allowed_letters]
         # Turn string into a map of each letter and the number of times it occurs
         letter_map = self.word_to_letter_map(letters)
 
