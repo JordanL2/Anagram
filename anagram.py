@@ -11,8 +11,7 @@ class AnagramFinder():
     def __init__(self, filename):
         self.allowed_letters = 'abcdefghijklmnopqrstuvwxyz'
 
-        self.thread_count = 1
-        multiprocessing.set_start_method('fork')
+        self.proc_count = 1
 
         self.caching_enabled = False
         self.cache_limit = 1000000
@@ -52,27 +51,27 @@ class AnagramFinder():
         # Turn string into a map of each letter and the number of times it occurs
         letter_map = self.word_to_letter_map(letters)
 
-        args = [[letter_map, display]] * self.thread_count
-        results = self.multithreaded_job(self.do_thread, args)
+        args = [[letter_map, display]] * self.proc_count
+        results = self.multiprocess_job(self.do_proc, args)
         return self.dedupe_results(results)
 
-    def multithreaded_job(self, target, args):
-        # Start a thread for each set of arguments
+    def multiprocess_job(self, target, args):
+        # Start a process for each set of arguments
         max_t = len(args)
-        threads = []
+        procs = []
         queue = multiprocessing.Queue()
         for t in range(0, max_t):
-            thread = multiprocessing.Process(
+            proc = multiprocessing.Process(
                 target=target,
                 args=[t, max_t, queue] + args[t],
                 daemon=True)
-            thread.start()
-            threads.append(thread)
+            proc.start()
+            procs.append(proc)
 
-        # Read results from threads while waiting for them to finish
+        # Read results from processes while waiting for them to finish
         results = []
-        for thread in threads:
-            while thread.is_alive():
+        for proc in procs:
+            while proc.is_alive():
                 sleep(0.001)
                 while True:
                     try:
@@ -86,7 +85,7 @@ class AnagramFinder():
             results.append(queue.get())
         return results
 
-    def do_thread(self, t, max_t, queue, letter_map, display):
+    def do_proc(self, t, max_t, queue, letter_map, display):
         self.result_cache = {}
         results = self.search_wordlist(letter_map, t, max_t, t, True, display)
         for result in results:
@@ -237,8 +236,8 @@ if __name__ == '__main__':
         else:
             key = arg_found[0]
             value = arg_found[1]
-            if key == 'threads':
-                a.thread_count = int(value)
+            if key == 'procs':
+                a.proc_count = int(value)
             elif key == 'cache':
                 a.caching_enabled = True
             elif key == 'cachesize':
@@ -247,11 +246,12 @@ if __name__ == '__main__':
                 print("Usage: ./anagram.py [<OPTIONS>] <WORDS>")
                 print()
                 print("Options:")
-                print("    --threads=<N>   - Runs N many threads, default is 1")
-                print("    --cache         - Enables cache, default is off")
-                print("    --cachesize=<N> - Sets the maximum number of results to cache, default is")
-                print("                      1000000, each result uses roughly 300 bytes memory")
-                print("    --help          - Displays this help")
+                print("    --procs=<N>     Runs N many processes, default is 1")
+                print("    --cache         Enables cache, default is off")
+                print("    --cachesize=<N> Sets the maximum number of results to cache, default is")
+                print("                    1000000 results. Each result uses roughly 300 bytes of")
+                print("                    memory per process.")
+                print("    --help          Displays this help")
                 print()
                 sys.exit()
             else:
