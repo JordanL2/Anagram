@@ -23,8 +23,6 @@ class AnagramFinder():
         f = open(filename)
         for line in f:
             word = line.strip()
-            if len([l for l in word if l not in self.allowed_letters]) > 0:
-                raise Exception("Invalid word in dictionary: '{}'".format(word))
             self.words.append(word)
         f.close()
         self.word_count = len(self.words)
@@ -75,7 +73,7 @@ class AnagramFinder():
         results = []
         for thread in threads:
             while thread.is_alive():
-                sleep(0.01)
+                sleep(0.001)
                 while True:
                     try:
                         r = queue.get(block=False)
@@ -190,9 +188,11 @@ class AnagramFinder():
     def word_to_letter_map(self, word):
         letter_map = {}
         for letter in word:
-            if letter not in letter_map:
-                letter_map[letter] = 0
-            letter_map[letter] += 1
+            letter = letter.lower()
+            if letter in self.allowed_letters:
+                if letter not in letter_map:
+                    letter_map[letter] = 0
+                letter_map[letter] += 1
         return letter_map
 
     def letter_map_count(self, letter_map):
