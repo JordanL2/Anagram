@@ -224,7 +224,7 @@ def argument(arg):
 
 
 if __name__ == '__main__':
-    a = AnagramFinder('words.txt')
+    a = AnagramFinder('dictionary/output.txt')
     words = []
     for arg in sys.argv[1:]:
         arg_found = argument(arg)
