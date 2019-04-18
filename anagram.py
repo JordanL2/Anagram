@@ -94,7 +94,7 @@ class AnagramFinder():
         if self.caching_enabled and key in self.result_cache:
             self.result_cache[key][2] += 1
             if self.result_cache[key][1] <= start:
-                return self.result_cache[key][0]
+                return self.results_as_list(self.result_cache[key][0], start)
             else:
                 cache_stop = self.result_cache[key][1]
 
@@ -114,11 +114,11 @@ class AnagramFinder():
                 rem_diff = rem - start_rem
                 start += rem_diff
 
-        results = []
+        results = {}
 
         for i in range(start, self.word_count, max_t):
             if self.caching_enabled and cache_stop is not None and i >= cache_stop and key in self.result_cache:
-                results.extend(self.result_cache[key][0])
+                self.merge_results(results, self.result_cache[key][0])
                 break
             word = self.words[i]
             if display is not None:
@@ -129,13 +129,13 @@ class AnagramFinder():
             if found:
                 if self.letter_map_count(letters_left) == 0:
                     # There are no remaining letters, so we have a result
-                    results.append([word])
+                    self.add_to_results(results, i, [word])
                 else:
                     # There are remaining letters, so we have to see what words
                     # can be found in them, combining the results with this word
                     next_find = self.search_wordlist(letters_left, 0, 1, i, False)
                     for n in next_find:
-                        results.append([word] + n)
+                        self.add_to_results(results, i, [word] + n)
 
         if display is not None:
             display(t, self.word_count, self.word_count)
@@ -149,7 +149,21 @@ class AnagramFinder():
             if len(self.result_cache) >= self.cache_limit:
                 self.clear_cache()
 
-        return results
+        return self.results_as_list(results)
+
+    def add_to_results(self, results, i, result):
+        if i not in results:
+            results[i] = []
+        results[i].append(result)
+
+    def merge_results(self, results1, results2):
+        for i in results2:
+            if i not in results1:
+                results1[i] = []
+            results1[i].extend(results2[i])
+
+    def results_as_list(self, map, start=0):
+        return [b for a in [map[k] for k in sorted(map.keys()) if k >= start] for b in a]
 
     def clear_cache(self):
         amount_to_remove = self.cache_limit * self.cache_clear_fraction
