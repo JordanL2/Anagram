@@ -17,7 +17,7 @@ class AnagramFinder():
         self.cache_limit = 1000000
         self.cache_clear_fraction = 0.1
 
-        self.fast_path_cutoff = 1
+        self.fast_path_cutoff = 0.1
 
         # Load dictionary of words
         self.words = []
