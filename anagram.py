@@ -50,7 +50,7 @@ class AnagramFinder():
 
         args = [[letter_map, display]] * self.proc_count
         results = self.multiprocess_job(self.do_proc, args)
-        return self.dedupe_results(results)
+        return self.sort_results(results)
 
     def multiprocess_job(self, target, args):
         # Start a process for each set of arguments
@@ -114,7 +114,7 @@ class AnagramFinder():
                 rem_diff = rem - start_rem
                 start += rem_diff
 
-        results = {}
+        results = []
 
         for i in range(start, self.word_count, max_t):
             if self.caching_enabled and cache_stop is not None and i >= cache_stop and key in self.result_cache:
@@ -129,59 +129,58 @@ class AnagramFinder():
             if found:
                 if self.letter_map_count(letters_left) == 0:
                     # There are no remaining letters, so we have a result
-                    self.add_to_results(results, i, [word])
+                    self.add_to_results(results, i, word)
                 else:
                     # There are remaining letters, so we have to see what words
                     # can be found in them, combining the results with this word
                     next_find = self.search_wordlist(letters_left, 0, 1, i, False)
                     for n in next_find:
-                        self.add_to_results(results, i, [word] + n)
+                        self.add_to_results(results, i, word + ' ' + n)
+            if toplevel and self.caching_enabled:
+                self.clear_cache()
 
         if display is not None:
             display(t, self.word_count, self.word_count)
         
-        if self.caching_enabled:
-            if not toplevel:
-                if key not in self.result_cache:
-                    self.result_cache[key] = [results, start, 0]
-                elif self.result_cache[key][1] > start:
-                    self.result_cache[key] = [results, start, self.result_cache[key][2]]
-            if len(self.result_cache) >= self.cache_limit:
-                self.clear_cache()
+        if not toplevel and self.caching_enabled:
+            if key not in self.result_cache:
+                self.result_cache[key] = [results, start, 0]
+            elif self.result_cache[key][1] > start:
+                self.result_cache[key] = [results, start, self.result_cache[key][2] + 1]
 
         return self.results_as_list(results)
 
     def add_to_results(self, results, i, result):
-        if i not in results:
-            results[i] = []
-        results[i].append(result)
+        results.append((i, result))
 
     def merge_results(self, results1, results2):
-        for i in results2:
-            if i not in results1:
-                results1[i] = []
-            results1[i].extend(results2[i])
+        results1.extend(results2)
 
-    def results_as_list(self, map, start=0):
-        return [b for a in [map[k] for k in sorted(map.keys()) if k >= start] for b in a]
+    def results_as_list(self, results, start=0):
+        return [r[1] for r in results if r[0] >= start]
+
+    def get_cache_size(self):
+        return len(self.result_cache)
 
     def clear_cache(self):
-        amount_to_remove = self.cache_limit * self.cache_clear_fraction
-        cache_usage = {}
-        for c in self.result_cache.values():
-            n = c[2]
-            if n not in cache_usage:
-                cache_usage[n] = 0
-            cache_usage[n] += 1
-        total_n = 0
-        remove_used = []
-        for used in sorted(cache_usage.keys()):
-            n = cache_usage[used]
-            remove_used.append(used)
-            total_n += n
-            if total_n >= amount_to_remove:
-                break
-        self.result_cache = dict([(k, v) for k, v in self.result_cache.items() if v[2] not in remove_used])
+        cache_size = self.get_cache_size()
+        if cache_size > self.cache_limit:
+            amount_to_remove = (cache_size - self.cache_limit) + (self.cache_limit * self.cache_clear_fraction)
+            cache_usage = {}
+            for c in self.result_cache.values():
+                n = c[2]
+                if n not in cache_usage:
+                    cache_usage[n] = 0
+                cache_usage[n] += 1
+            total_n = 0
+            remove_used = []
+            for used in sorted(cache_usage.keys()):
+                n = cache_usage[used]
+                remove_used.append(used)
+                total_n += n
+                if total_n >= amount_to_remove:
+                    break
+            self.result_cache = dict([(k, v) for k, v in self.result_cache.items() if v[2] not in remove_used])
 
     def word_in_letters(self, word, letter_map):
         this_word_letter_map = self.word_letter_map[word]
@@ -211,10 +210,10 @@ class AnagramFinder():
     def letter_map_to_key(self, letter_map):
         return ''.join([l * n for l, n in sorted(letter_map.items())])
 
-    def dedupe_results(self, results):
+    def sort_results(self, results):
         new_result = set()
         for result in results:
-            new_result.add(' '.join(sorted(result)))
+            new_result.add(' '.join(sorted(result.split(' '))))
         return sorted(list(new_result))
 
 
@@ -259,9 +258,7 @@ if __name__ == '__main__':
                 print("Options:")
                 print("    --procs=<N>     Runs N many processes, default is 1")
                 print("    --cache         Enables cache, default is off")
-                print("    --cachesize=<N> Sets the maximum number of results to cache, default is")
-                print("                    1000000 results. Each result uses roughly 300 bytes of")
-                print("                    memory per process.")
+                print("    --cachesize=<N> Sets the max number of results to cache, default 1000000")
                 print("    --help          Displays this help")
                 print()
                 sys.exit()
