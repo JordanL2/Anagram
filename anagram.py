@@ -17,6 +17,8 @@ class AnagramFinder():
         self.cache_limit = 1000000
         self.cache_clear_fraction = 0.1
 
+        self.fast_path_cutoff = 1
+
         # Load dictionary of words
         self.words = []
         f = open(filename)
@@ -41,8 +43,17 @@ class AnagramFinder():
         # For each word, makes a mapping of each letter in the word and the
         # number of times it occurs
         self.word_letter_map = {}
-        for word in self.words:
+        # Mapping of word sorted alphabetically to the word
+        self.word_normalised_map = {}
+        # Mapping of word to its index
+        self.word_reversed_index = {}
+        for i, word in enumerate(self.words):
             self.word_letter_map[word] = self.word_to_letter_map(word)
+            key = self.normalise_word(word)
+            if key not in self.word_normalised_map:
+                self.word_normalised_map[key] = []
+            self.word_normalised_map[key].append(word)
+            self.word_reversed_index[word] = i
 
     def find(self, letters, display=None):
         # Turn string into a map of each letter and the number of times it occurs
@@ -99,47 +110,104 @@ class AnagramFinder():
                 cache_stop = self.result_cache[key][1]
 
         # Get total number of letters we're searching
-        l = self.letter_map_count(letter_map)
-        if l < self.shortest_word_length:
+        letter_count = self.letter_map_count(letter_map)
+        if letter_count < self.shortest_word_length:
             # If the number of letters is shorter than the shortest
             # word, we can stop immediately
             return []
+
         # If possible, we can jump to the part of the word list with
         # the words that have the number of letters that we're searching
-        if l in self.word_length_index:
-            if self.word_length_index[l] > start:
+        if letter_count in self.word_length_index:
+            if self.word_length_index[letter_count] > start:
                 rem = start % max_t
-                start = self.word_length_index[l]
+                start = self.word_length_index[letter_count]
                 start_rem = start % max_t
                 rem_diff = rem - start_rem
                 start += rem_diff
 
         results = []
 
-        for i in range(start, self.word_count, max_t):
-            if self.caching_enabled and cache_stop is not None and i >= cache_stop and key in self.result_cache:
-                self.merge_results(results, self.result_cache[key][0])
-                break
-            word = self.words[i]
-            if display is not None:
-                display(t, i + 1, self.word_count)
-            # See if this word can be found in the letters we're searching,
-            # and if so, what letters are left over afterwards
-            found, letters_left = self.word_in_letters(word, letter_map)
-            if found:
-                if self.letter_map_count(letters_left) == 0:
-                    # There are no remaining letters, so we have a result
-                    self.add_to_results(results, i, word)
-                else:
-                    # There are remaining letters, so we have to see what words
-                    # can be found in them, combining the results with this word
-                    next_find = self.search_wordlist(letters_left, 0, 1, i, False)
-                    for n in next_find:
-                        self.add_to_results(results, i, word + ' ' + n)
-            if toplevel and self.caching_enabled:
-                self.clear_cache()
+        # If we have a small number of letters, it's faster to iterate through every possible
+        # combination of letters and see if it's an anagram of any words
+        letter_index_count = 1
+        for c in letter_map.values():
+            letter_index_count *= (c + 1)
+        if not toplevel and letter_index_count < (self.word_count - start) * self.fast_path_cutoff and cache_stop is None:
 
-        if display is not None:
+            # Mapping of index to letter
+            index_to_letter = [l for l in sorted(letter_map.keys())]
+            # Mapping of index to count of that letter
+            letter_max = [letter_map[l] for l in sorted(letter_map.keys())]
+            # Index as we step through every combination of letters
+            letter_index = [0] * len(letter_map.keys())
+            stop = False
+            while not stop:
+                
+                # Increment index
+                letter_index[-1] += 1
+                for i in range(len(letter_index) - 1, -1, -1):
+                    if letter_index[i] > letter_max[i]:
+                        if i == 0:
+                            stop = True
+                            break
+                        letter_index[i] = 0
+                        letter_index[i - 1] += 1
+
+                if not stop:
+                    letters = ''.join([index_to_letter[i] * letter_index[i] for i in range(0, len(letter_index))])
+
+                    if letters in self.word_normalised_map:
+                        words = [w for w in self.word_normalised_map[letters] if self.word_reversed_index[w] >= start]
+                        if len(words) > 0:
+                            # Calcuate what letters are left over
+                            letters_left = letter_map.copy()
+                            for i in range(0, len(letter_index)):
+                                l = index_to_letter[i]
+                                letters_left[l] -= letter_index[i]
+                                if letters_left[l] == 0:
+                                    del letters_left[l]
+                            letters_left_count = self.letter_map_count(letters_left)
+
+                            # Store these results
+                            for word in words:
+                                wordi = self.word_reversed_index[word]
+                                if letters_left_count == 0:
+                                    self.add_to_results(results, wordi, word)
+                                else:
+                                    next_find = self.search_wordlist(letters_left, 0, 1, wordi, False)
+                                    for n in next_find:
+                                        self.add_to_results(results, wordi, word + ' ' + n)
+
+        else:
+
+            # Otherwise, we iterate through all the words and see if they can be made
+            # using the letters we have
+
+            for wordi in range(start, self.word_count, max_t):
+                if self.caching_enabled and cache_stop is not None and wordi >= cache_stop and key in self.result_cache:
+                    self.merge_results(results, self.result_cache[key][0])
+                    break
+                word = self.words[wordi]
+                if toplevel and display is not None:
+                    display(t, wordi + 1, self.word_count)
+                # See if this word can be found in the letters we're searching,
+                # and if so, what letters are left over afterwards
+                found, letters_left = self.word_in_letters(word, letter_map)
+                if found:
+                    if self.letter_map_count(letters_left) == 0:
+                        # There are no remaining letters, so we have a result
+                        self.add_to_results(results, wordi, word)
+                    else:
+                        # There are remaining letters, so we have to see what words
+                        # can be found in them, combining the results with this word
+                        next_find = self.search_wordlist(letters_left, 0, 1, wordi, False)
+                        for n in next_find:
+                            self.add_to_results(results, wordi, word + ' ' + n)
+                if toplevel and self.caching_enabled:
+                    self.clear_cache()
+
+        if toplevel and display is not None:
             display(t, self.word_count, self.word_count)
         
         if not toplevel and self.caching_enabled:
@@ -209,6 +277,9 @@ class AnagramFinder():
 
     def letter_map_to_key(self, letter_map):
         return ''.join([l * n for l, n in sorted(letter_map.items())])
+
+    def normalise_word(self, word):
+        return self.letter_map_to_key(self.word_to_letter_map(word))
 
     def sort_results(self, results):
         new_result = set()
