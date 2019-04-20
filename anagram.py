@@ -20,6 +20,8 @@ class AnagramFinder():
         self.fast_path_enabled = True
         self.fast_path_iter_rel_speed = 0.3
 
+        self.result_batch_size = 1000
+
         # Load dictionary of words
         self.normalised_word_map = {}
         f = open(filename)
@@ -74,20 +76,24 @@ class AnagramFinder():
                 while True:
                     try:
                         r = queue.get(block=False)
-                        results.append(r)
+                        results.extend(r)
                     except Empty:
                         break
 
         # Add the last of the queue to the results, and return them
         while not queue.empty():
-            results.append(queue.get())
+            results.extend(queue.get())
         return results
 
     def do_proc(self, t, max_t, queue, letter_map, display):
         self.result_cache = {}
         results = self.search_wordlist(letter_map, t, max_t, t, 0, display)
-        for result in results:
-            queue.put(result)
+        for i in range(0, len(results), self.result_batch_size):
+            next_i = i + self.result_batch_size
+            if next_i >= len(results):
+                queue.put(results[i:])
+            else:
+                queue.put(results[i:next_i])
 
     def search_wordlist(self, letter_map, t, max_t, start, level, display=None):
         toplevel = level == 0
@@ -254,13 +260,13 @@ class AnagramFinder():
                     break
             self.result_cache = dict([(k, v) for k, v in self.result_cache.items() if v[2] not in remove_used])
 
-    def word_in_letters(self, this_word_letter_map, letter_map):
-        for letter in this_word_letter_map.keys():
-            if letter not in letter_map or this_word_letter_map[letter] > letter_map[letter]:
+    def word_in_letters(self, word_letter_map, letter_map):
+        for letter in word_letter_map.keys():
+            if letter not in letter_map or word_letter_map[letter] > letter_map[letter]:
                 return False, None
         letters_left = letter_map.copy()
-        for letter in this_word_letter_map.keys():
-            letters_left[letter] -= this_word_letter_map[letter]
+        for letter in word_letter_map.keys():
+            letters_left[letter] -= word_letter_map[letter]
             if letters_left[letter] == 0:
                 del letters_left[letter]
         return True, letters_left
