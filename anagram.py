@@ -97,11 +97,12 @@ class AnagramFinder():
 
     def do_proc(self, t, max_t, queue, letter_map, display):
         self.result_cache = {}
-        results = self.search_wordlist(letter_map, t, max_t, t, True, display)
+        results = self.search_wordlist(letter_map, t, max_t, t, 0, display)
         for result in results:
             queue.put(result)
 
-    def search_wordlist(self, letter_map, t, max_t, start, toplevel, display=None):
+    def search_wordlist(self, letter_map, t, max_t, start, level, display=None):
+        toplevel = level == 0
         key = self.letter_map_to_key(letter_map)
         cache_stop = None
         if self.caching_enabled and key in self.result_cache:
@@ -137,12 +138,13 @@ class AnagramFinder():
             letter_index_count *= (c + 1)
         if not toplevel and self.fast_path_enabled and letter_index_count < (self.word_count - start) * self.fast_path_cutoff and cache_stop is None:
 
+            letter_index_length = len(letter_map)
             # Mapping of index to letter
             index_to_letter = [l for l in sorted(letter_map.keys())]
             # Mapping of index to count of that letter
             letter_max = [letter_map[l] for l in sorted(letter_map.keys())]
             # Index as we step through every combination of letters
-            letter_index = [0] * len(letter_map.keys())
+            letter_index = [0] * letter_index_length
             stop = False
             while not stop:
                 
@@ -157,7 +159,7 @@ class AnagramFinder():
                         letter_index[i - 1] += 1
 
                 if not stop:
-                    letters = ''.join([index_to_letter[i] * letter_index[i] for i in range(0, len(letter_index))])
+                    letters = ''.join([index_to_letter[i] * letter_index[i] for i in range(0, letter_index_length)])
 
                     if letters in self.word_normalised_map:
                         words = [w for w in self.word_normalised_map[letters] if self.word_reversed_index[w] >= start]
@@ -177,7 +179,7 @@ class AnagramFinder():
                                 if letters_left_count == 0:
                                     self.add_to_results(results, wordi, word)
                                 else:
-                                    next_find = self.search_wordlist(letters_left, 0, 1, wordi, False)
+                                    next_find = self.search_wordlist(letters_left, 0, 1, wordi, level + 1)
                                     for n in next_find:
                                         self.add_to_results(results, wordi, word + ' ' + n)
 
@@ -203,7 +205,7 @@ class AnagramFinder():
                     else:
                         # There are remaining letters, so we have to see what words
                         # can be found in them, combining the results with this word
-                        next_find = self.search_wordlist(letters_left, 0, 1, wordi, False)
+                        next_find = self.search_wordlist(letters_left, 0, 1, wordi, level + 1)
                         for n in next_find:
                             self.add_to_results(results, wordi, word + ' ' + n)
                 if toplevel and self.caching_enabled:
