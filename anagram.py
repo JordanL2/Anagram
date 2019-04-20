@@ -18,41 +18,32 @@ class AnagramFinder():
         self.cache_clear_fraction = 0.10
 
         self.fast_path_enabled = True
-        self.fast_path_iter_rel_speed = 0.12
+        self.fast_path_iter_rel_speed = 0.3
 
         # Load dictionary of words
-        self.words = []
+        self.normalised_word_map = {}
         f = open(filename)
         for line in f:
             word = line.strip()
-            self.words.append(word)
+            letter_map = self.word_to_letter_map(word)
+            key = self.letter_map_to_key(letter_map)
+            if key not in self.normalised_word_map:
+                self.normalised_word_map[key] = (key, letter_map, [])
+            self.normalised_word_map[key][2].append(word)
         f.close()
-        self.word_count = len(self.words)
-
+        
         # Sort the word list by word length, longest words first
-        self.words.sort(key=len, reverse=True)
+        self.letter_map_to_words = sorted(self.normalised_word_map.values(), key=lambda x: len(x[0]), reverse=True)
+        self.letter_map_to_words_count = len(self.letter_map_to_words)
+        self.letter_map_reverse = dict([(l[0], i) for i, l in enumerate(self.letter_map_to_words)])
 
         # Index of word list by length, so when we only have eg 5 letters,
         # we can jump to the part of the list with words of that length
         self.word_length_index = {}
-        for i, word in enumerate(self.words):
-            l = len(word)
+        for i, lmw in enumerate(self.letter_map_to_words):
+            l = len(lmw[0])
             if l not in self.word_length_index:
                 self.word_length_index[l] = i
-                self.shortest_word_length = l
-
-        # For each word, makes a mapping of each letter in the word and the
-        # number of times it occurs
-        self.word_letter_map = {}
-        # Mapping of word sorted alphabetically to the word
-        self.word_normalised_map = {}
-        for i, word in enumerate(self.words):
-            self.word_letter_map[word] = self.word_to_letter_map(word)
-            key = self.normalise_word(word)
-            if self.fast_path_enabled:
-                if key not in self.word_normalised_map:
-                    self.word_normalised_map[key] = []
-                self.word_normalised_map[key].append((word, i))
 
     def find(self, letters, display=None):
         # Turn string into a map of each letter and the number of times it occurs
@@ -111,10 +102,6 @@ class AnagramFinder():
 
         # Get total number of letters we're searching
         letter_count = self.letter_map_count(letter_map)
-        if letter_count < self.shortest_word_length:
-            # If the number of letters is shorter than the shortest
-            # word, we can stop immediately
-            return []
 
         # If possible, we can jump to the part of the word list with
         # the words that have the number of letters that we're searching
@@ -137,7 +124,7 @@ class AnagramFinder():
         letter_combinations = 1
         for c in letter_map.values():
             letter_combinations *= (c + 1)
-        if not toplevel and self.fast_path_enabled and letter_combinations < (self.word_count - start) * self.fast_path_iter_rel_speed and cache_stop is None:
+        if not toplevel and self.fast_path_enabled and letter_combinations < (self.letter_map_to_words_count - start) * self.fast_path_iter_rel_speed and cache_stop is None:
 
             letter_index_length = len(letter_map)
             # Mapping of index to letter
@@ -160,12 +147,10 @@ class AnagramFinder():
                     break
                 
                 # Find the words that are anagrams of these letters
-                if letters in self.word_normalised_map:
-                    words = []
-                    for w in self.word_normalised_map[letters]:
-                        if w[1] >= start:
-                            words.append(w)
-                    if len(words) > 0:
+                if letters in self.normalised_word_map:
+                    wordi = self.letter_map_reverse[letters]
+                    if wordi >= start:
+                        words = self.normalised_word_map[letters][2]
                         
                         # Calculate what letters are left over
                         letters_left = letter_map.copy()
@@ -177,13 +162,12 @@ class AnagramFinder():
                         letters_left_count = self.letter_map_count(letters_left)
 
                         # Store these results
-                        for w in words:
-                            word = w[0]
-                            wordi = w[1]
-                            if letters_left_count == 0:
+                        if letters_left_count == 0:
+                            for word in words:
                                 self.add_to_results(results, wordi, word)
-                            else:
-                                next_find = self.search_wordlist(letters_left, 0, 1, wordi, level + 1)
+                        else:
+                            next_find = self.search_wordlist(letters_left, 0, 1, wordi, level + 1)
+                            for word in words:
                                 for n in next_find:
                                     self.add_to_results(results, wordi, word + ' ' + n)
 
@@ -201,31 +185,34 @@ class AnagramFinder():
             # Otherwise, we iterate through all the words and see if they can be made
             # using the letters we have
 
-            for wordi in range(start, self.word_count, max_t):
+            for wordi in range(start, self.letter_map_to_words_count, max_t):
                 if self.caching_enabled and cache_stop is not None and wordi >= cache_stop and key in self.result_cache:
                     self.merge_results(results, self.result_cache[key][0])
                     break
-                word = self.words[wordi]
+                word_letter_map = self.letter_map_to_words[wordi][1]
                 if toplevel and display is not None:
-                    display(t, wordi + 1, self.word_count)
+                    display(t, wordi + 1, self.letter_map_to_words_count)
                 # See if this word can be found in the letters we're searching,
                 # and if so, what letters are left over afterwards
-                found, letters_left = self.word_in_letters(word, letter_map)
+                found, letters_left = self.word_in_letters(word_letter_map, letter_map)
                 if found:
+                    words = self.letter_map_to_words[wordi][2]
                     if self.letter_map_count(letters_left) == 0:
                         # There are no remaining letters, so we have a result
-                        self.add_to_results(results, wordi, word)
+                        for word in words:
+                            self.add_to_results(results, wordi, word)
                     else:
                         # There are remaining letters, so we have to see what words
                         # can be found in them, combining the results with this word
                         next_find = self.search_wordlist(letters_left, 0, 1, wordi, level + 1)
-                        for n in next_find:
-                            self.add_to_results(results, wordi, word + ' ' + n)
+                        for word in words:
+                            for n in next_find:
+                                self.add_to_results(results, wordi, word + ' ' + n)
                 if toplevel and self.caching_enabled:
                     self.clear_cache()
 
         if toplevel and display is not None:
-            display(t, self.word_count, self.word_count)
+            display(t, self.letter_map_to_words_count, self.letter_map_to_words_count)
         
         if not toplevel and self.caching_enabled:
             if key not in self.result_cache:
@@ -267,8 +254,7 @@ class AnagramFinder():
                     break
             self.result_cache = dict([(k, v) for k, v in self.result_cache.items() if v[2] not in remove_used])
 
-    def word_in_letters(self, word, letter_map):
-        this_word_letter_map = self.word_letter_map[word]
+    def word_in_letters(self, this_word_letter_map, letter_map):
         for letter in this_word_letter_map.keys():
             if letter not in letter_map or this_word_letter_map[letter] > letter_map[letter]:
                 return False, None
@@ -294,9 +280,6 @@ class AnagramFinder():
 
     def letter_map_to_key(self, letter_map):
         return ''.join([l * n for l, n in sorted(letter_map.items())])
-
-    def normalise_word(self, word):
-        return self.letter_map_to_key(self.word_to_letter_map(word))
 
     def sort_results(self, results):
         new_result = set()
