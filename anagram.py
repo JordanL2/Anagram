@@ -133,10 +133,10 @@ class AnagramFinder():
 
         # If we have a small number of letters, it's faster to iterate through every possible
         # combination of letters and see if it's an anagram of any words
-        letter_index_count = 1
+        letter_combinations = 1
         for c in letter_map.values():
-            letter_index_count *= (c + 1)
-        if not toplevel and self.fast_path_enabled and letter_index_count < (self.word_count - start) * self.fast_path_cutoff and cache_stop is None:
+            letter_combinations *= (c + 1)
+        if not toplevel and self.fast_path_enabled and letter_combinations < (self.word_count - start) * self.fast_path_cutoff and cache_stop is None:
 
             letter_index_length = len(letter_map)
             # Mapping of index to letter
@@ -150,13 +150,15 @@ class AnagramFinder():
                 
                 # Increment index
                 letter_index[-1] += 1
-                for i in range(len(letter_index) - 1, -1, -1):
+                for i in range(letter_index_length - 1, -1, -1):
                     if letter_index[i] > letter_max[i]:
                         if i == 0:
                             stop = True
                             break
                         letter_index[i] = 0
                         letter_index[i - 1] += 1
+                    else:
+                        break
 
                 if not stop:
                     letters = ''.join([index_to_letter[i] * letter_index[i] for i in range(0, letter_index_length)])
@@ -166,7 +168,7 @@ class AnagramFinder():
                         if len(words) > 0:
                             # Calcuate what letters are left over
                             letters_left = letter_map.copy()
-                            for i in range(0, len(letter_index)):
+                            for i in range(0, letter_index_length):
                                 l = index_to_letter[i]
                                 letters_left[l] -= letter_index[i]
                                 if letters_left[l] == 0:
