@@ -15,7 +15,7 @@ class AnagramFinder():
 
         self.caching_enabled = False
         self.cache_limit = 1000000
-        self.cache_clear_fraction = 0.1
+        self.cache_clear_fraction = 0.12
 
         self.fast_path_enabled = True
         self.fast_path_cutoff = 0.2
@@ -147,7 +147,7 @@ class AnagramFinder():
                 index_to_letter.append(l)
                 letter_max.append(letter_map[l])
             # Index as we step through every combination of letters
-            letter_index = letter_max.copy()#[0] * letter_index_length
+            letter_index = letter_max.copy()
 
             while True:
                 
