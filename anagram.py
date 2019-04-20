@@ -15,7 +15,7 @@ class AnagramFinder():
 
         self.caching_enabled = False
         self.cache_limit = 1000000
-        self.cache_clear_fraction = 0.10
+        self.cache_clear_fraction = 0.1
 
         self.fast_path_enabled = True
         self.fast_path_iter_rel_speed = 0.3
