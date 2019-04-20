@@ -46,16 +46,13 @@ class AnagramFinder():
         self.word_letter_map = {}
         # Mapping of word sorted alphabetically to the word
         self.word_normalised_map = {}
-        # Mapping of word to its index
-        self.word_reversed_index = {}
         for i, word in enumerate(self.words):
             self.word_letter_map[word] = self.word_to_letter_map(word)
             key = self.normalise_word(word)
             if self.fast_path_enabled:
                 if key not in self.word_normalised_map:
                     self.word_normalised_map[key] = []
-                self.word_normalised_map[key].append(word)
-                self.word_reversed_index[word] = i
+                self.word_normalised_map[key].append((word, i))
 
     def find(self, letters, display=None):
         # Turn string into a map of each letter and the number of times it occurs
@@ -140,9 +137,13 @@ class AnagramFinder():
 
             letter_index_length = len(letter_map)
             # Mapping of index to letter
-            index_to_letter = [l for l in sorted(letter_map.keys())]
+            index_to_letter = []
             # Mapping of index to count of that letter
-            letter_max = [letter_map[l] for l in sorted(letter_map.keys())]
+            letter_max = []
+            for l in sorted(letter_map.keys()):
+                index_to_letter.append(l)
+                letter_max.append(letter_map[l])
+
             # Index as we step through every combination of letters
             letter_index = [0] * letter_index_length
             stop = False
@@ -161,10 +162,17 @@ class AnagramFinder():
                         break
 
                 if not stop:
-                    letters = ''.join([index_to_letter[i] * letter_index[i] for i in range(0, letter_index_length)])
+                    # Put together the letters we're looking at this iteration
+                    letters = ''
+                    for i in range(0, letter_index_length):
+                        letters += index_to_letter[i] * letter_index[i]
 
+                    # Find the words that are anagrams of these letters
                     if letters in self.word_normalised_map:
-                        words = [w for w in self.word_normalised_map[letters] if self.word_reversed_index[w] >= start]
+                        words = []
+                        for w in self.word_normalised_map[letters]:
+                            if w[1] >= start:
+                                words.append(w)
                         if len(words) > 0:
                             # Calcuate what letters are left over
                             letters_left = letter_map.copy()
@@ -176,8 +184,9 @@ class AnagramFinder():
                             letters_left_count = self.letter_map_count(letters_left)
 
                             # Store these results
-                            for word in words:
-                                wordi = self.word_reversed_index[word]
+                            for w in words:
+                                word = w[0]
+                                wordi = w[1]
                                 if letters_left_count == 0:
                                     self.add_to_results(results, wordi, word)
                                 else:
