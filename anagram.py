@@ -18,7 +18,7 @@ class AnagramFinder():
         self.cache_clear_fraction = 0.1
 
         self.fast_path_enabled = True
-        self.fast_path_cutoff = 0.1
+        self.fast_path_cutoff = 0.2
 
         # Load dictionary of words
         self.words = []
@@ -120,11 +120,14 @@ class AnagramFinder():
         # the words that have the number of letters that we're searching
         if letter_count in self.word_length_index:
             if self.word_length_index[letter_count] > start:
-                rem = start % max_t
-                start = self.word_length_index[letter_count]
-                start_rem = start % max_t
-                rem_diff = rem - start_rem
-                start += rem_diff
+                if max_t > 1:
+                    rem = start % max_t
+                    start = self.word_length_index[letter_count]
+                    start_rem = start % max_t
+                    rem_diff = rem - start_rem
+                    start += rem_diff
+                else:
+                    start = self.word_length_index[letter_count]
 
         results = []
 
@@ -143,56 +146,54 @@ class AnagramFinder():
             for l in sorted(letter_map.keys()):
                 index_to_letter.append(l)
                 letter_max.append(letter_map[l])
-
             # Index as we step through every combination of letters
-            letter_index = [0] * letter_index_length
-            stop = False
-            while not stop:
+            letter_index = letter_max.copy()#[0] * letter_index_length
+
+            while True:
                 
-                # Increment index
-                letter_index[-1] += 1
+                # Put together the letters we're looking at this iteration
+                letters = ''
+                for i in range(0, letter_index_length):
+                    letters += index_to_letter[i] * letter_index[i]
+                if letters == '':
+                    break
+                
+                # Find the words that are anagrams of these letters
+                if letters in self.word_normalised_map:
+                    words = []
+                    for w in self.word_normalised_map[letters]:
+                        if w[1] >= start:
+                            words.append(w)
+                    if len(words) > 0:
+                        
+                        # Calculate what letters are left over
+                        letters_left = letter_map.copy()
+                        for i in range(0, letter_index_length):
+                            l = index_to_letter[i]
+                            letters_left[l] -= letter_index[i]
+                            if letters_left[l] == 0:
+                                del letters_left[l]
+                        letters_left_count = self.letter_map_count(letters_left)
+
+                        # Store these results
+                        for w in words:
+                            word = w[0]
+                            wordi = w[1]
+                            if letters_left_count == 0:
+                                self.add_to_results(results, wordi, word)
+                            else:
+                                next_find = self.search_wordlist(letters_left, 0, 1, wordi, level + 1)
+                                for n in next_find:
+                                    self.add_to_results(results, wordi, word + ' ' + n)
+
+                # Decrement index
+                letter_index[-1] -= 1
                 for i in range(letter_index_length - 1, -1, -1):
-                    if letter_index[i] > letter_max[i]:
-                        if i == 0:
-                            stop = True
-                            break
-                        letter_index[i] = 0
-                        letter_index[i - 1] += 1
+                    if letter_index[i] == -1:
+                        letter_index[i] = letter_max[i]
+                        letter_index[i - 1] -= 1
                     else:
                         break
-
-                if not stop:
-                    # Put together the letters we're looking at this iteration
-                    letters = ''
-                    for i in range(0, letter_index_length):
-                        letters += index_to_letter[i] * letter_index[i]
-
-                    # Find the words that are anagrams of these letters
-                    if letters in self.word_normalised_map:
-                        words = []
-                        for w in self.word_normalised_map[letters]:
-                            if w[1] >= start:
-                                words.append(w)
-                        if len(words) > 0:
-                            # Calcuate what letters are left over
-                            letters_left = letter_map.copy()
-                            for i in range(0, letter_index_length):
-                                l = index_to_letter[i]
-                                letters_left[l] -= letter_index[i]
-                                if letters_left[l] == 0:
-                                    del letters_left[l]
-                            letters_left_count = self.letter_map_count(letters_left)
-
-                            # Store these results
-                            for w in words:
-                                word = w[0]
-                                wordi = w[1]
-                                if letters_left_count == 0:
-                                    self.add_to_results(results, wordi, word)
-                                else:
-                                    next_find = self.search_wordlist(letters_left, 0, 1, wordi, level + 1)
-                                    for n in next_find:
-                                        self.add_to_results(results, wordi, word + ' ' + n)
 
         else:
 
