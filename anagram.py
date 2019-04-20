@@ -17,6 +17,7 @@ class AnagramFinder():
         self.cache_limit = 1000000
         self.cache_clear_fraction = 0.1
 
+        self.fast_path_enabled = True
         self.fast_path_cutoff = 0.1
 
         # Load dictionary of words
@@ -50,10 +51,11 @@ class AnagramFinder():
         for i, word in enumerate(self.words):
             self.word_letter_map[word] = self.word_to_letter_map(word)
             key = self.normalise_word(word)
-            if key not in self.word_normalised_map:
-                self.word_normalised_map[key] = []
-            self.word_normalised_map[key].append(word)
-            self.word_reversed_index[word] = i
+            if self.fast_path_enabled:
+                if key not in self.word_normalised_map:
+                    self.word_normalised_map[key] = []
+                self.word_normalised_map[key].append(word)
+                self.word_reversed_index[word] = i
 
     def find(self, letters, display=None):
         # Turn string into a map of each letter and the number of times it occurs
@@ -133,7 +135,7 @@ class AnagramFinder():
         letter_index_count = 1
         for c in letter_map.values():
             letter_index_count *= (c + 1)
-        if not toplevel and letter_index_count < (self.word_count - start) * self.fast_path_cutoff and cache_stop is None:
+        if not toplevel and self.fast_path_enabled and letter_index_count < (self.word_count - start) * self.fast_path_cutoff and cache_stop is None:
 
             # Mapping of index to letter
             index_to_letter = [l for l in sorted(letter_map.keys())]
