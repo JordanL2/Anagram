@@ -15,10 +15,10 @@ class AnagramFinder():
 
         self.caching_enabled = False
         self.cache_limit = 1000000
-        self.cache_clear_fraction = 0.12
+        self.cache_clear_fraction = 0.10
 
         self.fast_path_enabled = True
-        self.fast_path_cutoff = 0.2
+        self.fast_path_iter_rel_speed = 0.12
 
         # Load dictionary of words
         self.words = []
@@ -132,11 +132,12 @@ class AnagramFinder():
         results = []
 
         # If we have a small number of letters, it's faster to iterate through every possible
-        # combination of letters and see if it's an anagram of any words
+        # combination of letters and see if it's an anagram of any words, although each iteration
+        # of this path is roughly 8x slower than the default path
         letter_combinations = 1
         for c in letter_map.values():
             letter_combinations *= (c + 1)
-        if not toplevel and self.fast_path_enabled and letter_combinations < (self.word_count - start) * self.fast_path_cutoff and cache_stop is None:
+        if not toplevel and self.fast_path_enabled and letter_combinations < (self.word_count - start) * self.fast_path_iter_rel_speed and cache_stop is None:
 
             letter_index_length = len(letter_map)
             # Mapping of index to letter
