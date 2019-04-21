@@ -119,12 +119,6 @@ class AnagramFinder():
             tree_pointer['words'] = lmw[2]
 
     def search_wordlist(self, letter_map, t, max_t, display=None):
-        # key = self.letter_map_to_key(letter_map)
-        # if self.caching_enabled and key in self.result_cache:
-        #     self.result_cache[key][2] += 1
-        #     if self.result_cache[key][1] <= t:
-        #         return self.results_as_list(self.result_cache[key][0], t)
-
         # Get total number of letters we're searching
         letter_count = self.letter_map_count(letter_map)
 
@@ -132,21 +126,15 @@ class AnagramFinder():
         # the words that have the number of letters that we're searching
         if letter_count in self.word_length_index:
             if self.word_length_index[letter_count] > t:
-                if max_t > 1:
-                    rem = t % max_t
-                    t = self.word_length_index[letter_count]
-                    start_rem = t % max_t
-                    rem_diff = rem - start_rem
-                    t += rem_diff
-                else:
-                    t = self.word_length_index[letter_count]
+                rem = t % max_t
+                t = self.word_length_index[letter_count]
+                start_rem = t % max_t
+                rem_diff = rem - start_rem
+                t += rem_diff
 
         results = []
 
         for wordi in range(t, self.letter_map_to_words_count, max_t):
-            if self.caching_enabled and cache_stop is not None and wordi >= cache_stop and key in self.result_cache:
-                self.merge_results(results, self.result_cache[key][0])
-                break
             word_letter_map = self.letter_map_to_words[wordi][1]
             if display is not None:
                 display(t, wordi + 1, self.letter_map_to_words_count)
@@ -168,37 +156,53 @@ class AnagramFinder():
                         for n in next_find:
                             results.append(' '.join(sorted((word + ' ' + n).split(' '))))
 
-            # if self.caching_enabled:
-            #     self.clear_cache()
+            if self.caching_enabled:
+                self.clear_cache()
 
         if display is not None:
             display(t, self.letter_map_to_words_count, self.letter_map_to_words_count)
-        
-        # if not toplevel and self.caching_enabled:
-        #     if key not in self.result_cache:
-        #         self.result_cache[key] = [results, start, 0]
-        #     elif self.result_cache[key][1] > start:
-        #         self.result_cache[key] = [results, start, self.result_cache[key][2] + 1]
 
         return results
 
     def search_wordtree(self, letter_map, comparison_key):
+        key = self.letter_map_to_key(letter_map)
+        #cache_stop = None
+        if self.caching_enabled and key in self.result_cache:
+            self.result_cache[key][2] += 1
+            if not self.key_is_after(self.result_cache[key][1], comparison_key):
+                return self.results_as_list(self.result_cache[key][0], comparison_key)
+            #else:
+            #    cache_stop = self.result_cache[key][1]
+
         results = []
 
-        for tree_pointer_result in self.find_words(letter_map, comparison_key, self.word_tree):
+        these_results = self.find_words(letter_map, comparison_key, self.word_tree)
+
+        for tree_pointer_result in sorted(these_results, key=lambda x:x[1]['key']):
             letters_left = tree_pointer_result[0]
             tree_pointer = tree_pointer_result[1]
             words = tree_pointer['words']
             word_key = tree_pointer['key']
+            #if self.caching_enabled and cache_stop is not None and not self.key_is_after(comparison_key, word_key) and key in self.result_cache:
+            #    self.merge_results(results, self.result_cache[key][0])
+            #    break
             if len(letters_left) == 0:
-                results.extend(words)
+                self.add_results(results, words, word_key)
             else:
                 next_find = self.search_wordtree(letters_left, word_key)
+                results_to_add = []
                 for word in words:
                     for n in next_find:
-                        results.append(word + ' ' + n)
+                        results_to_add.append(word + ' ' + n)
+                self.add_results(results, results_to_add, word_key)
 
-        return results
+        if self.caching_enabled:
+            if key not in self.result_cache:
+                self.result_cache[key] = [results, comparison_key, 0]
+            elif self.result_cache[key][1] > comparison_key:
+                self.result_cache[key] = [results, comparison_key, self.result_cache[key][2] + 1]
+
+        return self.results_as_list(results)
 
     def find_words(self, letter_map, comparison_key, tree_pointer):
         if 'key' in tree_pointer and self.key_is_after(comparison_key, tree_pointer['key']):
@@ -208,7 +212,7 @@ class AnagramFinder():
         if 'words' in tree_pointer:
             results.append((letter_map, tree_pointer))
         
-        for l in letter_map:
+        for l in sorted(letter_map):
             if l in tree_pointer:
                 new_letter_map = letter_map.copy()
                 new_letter_map[l] -= 1
@@ -217,6 +221,20 @@ class AnagramFinder():
                 results.extend(self.find_words(new_letter_map, comparison_key, tree_pointer[l]))
 
         return results
+
+    def add_results(self, results, results_to_add, word_key):
+        if len(results_to_add) > 0:
+            results.append((word_key, results_to_add))
+
+    def merge_results(self, results1, results2):
+        results1.extend(results2)
+
+    def results_as_list(self, results, word_key=None):
+        results_to_return = []
+        for result in results:
+            if word_key is None or not self.key_is_after(word_key, result[0]):
+                results_to_return.extend(result[1])
+        return results_to_return
 
     def get_cache_size(self):
         return len(self.result_cache)
