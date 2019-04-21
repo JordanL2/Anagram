@@ -185,11 +185,11 @@ class AnagramFinder():
     def search_wordtree(self, letter_map, comparison_key):
         results = []
 
-        for tree_pointer in self.find_words(letter_map, comparison_key, self.word_tree):
-            word_letter_map = tree_pointer['letter_map']
+        for tree_pointer_result in self.find_words(letter_map, comparison_key, self.word_tree):
+            letters_left = tree_pointer_result[0]
+            tree_pointer = tree_pointer_result[1]
             words = tree_pointer['words']
             word_key = tree_pointer['key']
-            letters_left = self.letter_map_subtract(letter_map, word_letter_map)
             if len(letters_left) == 0:
                 results.extend(words)
             else:
@@ -206,7 +206,7 @@ class AnagramFinder():
         results = []
 
         if 'words' in tree_pointer:
-            results.append(tree_pointer)
+            results.append((letter_map, tree_pointer))
         
         for l in letter_map:
             if l in tree_pointer:
