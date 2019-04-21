@@ -4,7 +4,6 @@ import sys
 import multiprocessing
 from queue import Empty
 from time import sleep
-import pprint
 
 
 class AnagramFinder():
