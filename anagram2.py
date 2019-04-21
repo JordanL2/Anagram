@@ -23,6 +23,8 @@ class AnagramFinder():
 
         self.result_batch_size = 1000
 
+        self.max_key_size = 30
+
         # Load dictionary of words
         self.words = []
         f = open(filename)
@@ -166,26 +168,27 @@ class AnagramFinder():
 
     def search_wordtree(self, letter_map, comparison_key):
         key = self.letter_map_to_key(letter_map)
-        #cache_stop = None
+        cache_stop = None
         if self.caching_enabled and key in self.result_cache:
             self.result_cache[key][2] += 1
             if not self.key_is_after(self.result_cache[key][1], comparison_key):
                 return self.results_as_list(self.result_cache[key][0], comparison_key)
-            #else:
-            #    cache_stop = self.result_cache[key][1]
+            else:
+                cache_stop = self.result_cache[key][1]
 
         results = []
 
         these_results = self.find_words(letter_map, comparison_key, self.word_tree)
+        these_results.sort(key=lambda x: self.normalise_key(x[1]['key']))
 
-        for tree_pointer_result in sorted(these_results, key=lambda x:x[1]['key']):
+        for tree_pointer_result in these_results:
             letters_left = tree_pointer_result[0]
             tree_pointer = tree_pointer_result[1]
             words = tree_pointer['words']
             word_key = tree_pointer['key']
-            #if self.caching_enabled and cache_stop is not None and not self.key_is_after(comparison_key, word_key) and key in self.result_cache:
-            #    self.merge_results(results, self.result_cache[key][0])
-            #    break
+            if self.caching_enabled and cache_stop is not None and not self.key_is_after(cache_stop, word_key) and key in self.result_cache:
+                self.merge_results(results, self.result_cache[key][0])
+                break
             if len(letters_left) == 0:
                 self.add_results(results, words, word_key)
             else:
@@ -199,7 +202,7 @@ class AnagramFinder():
         if self.caching_enabled:
             if key not in self.result_cache:
                 self.result_cache[key] = [results, comparison_key, 0]
-            elif self.result_cache[key][1] > comparison_key:
+            elif self.key_is_after(self.result_cache[key][1], comparison_key):
                 self.result_cache[key] = [results, comparison_key, self.result_cache[key][2] + 1]
 
         return self.results_as_list(results)
@@ -290,10 +293,10 @@ class AnagramFinder():
         return new_letter_map
 
     def key_is_after(self, key1, key2):
-        l = max(len(key1), len(key2))
-        key1 += '|' * (l - len(key1))
-        key2 += '|' * (l - len(key2))
-        return key1 > key2
+        return self.normalise_key(key1) > self.normalise_key(key2)
+
+    def normalise_key(self, key):
+        return key + '|' * (self.max_key_size - len(key))
 
     def sort_results(self, results):
         new_result = set()
