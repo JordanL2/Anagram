@@ -114,8 +114,9 @@ class AnagramFinder():
                 if l not in tree_pointer:
                     tree_pointer[l] = {}
                 tree_pointer = tree_pointer[l]
-            tree_pointer['words'] = lmw[2]
+            tree_pointer['key'] = lmw[0]
             tree_pointer['letter_map'] = lmw[1]
+            tree_pointer['words'] = lmw[2]
         #pprint.PrettyPrinter(indent=4).pprint(self.word_tree)
 
     def search_wordlist(self, letter_map, t, max_t, display=None):
@@ -155,6 +156,7 @@ class AnagramFinder():
             found, letters_left = self.word_in_letters(word_letter_map, letter_map)
             if found:
                 words = self.letter_map_to_words[wordi][2]
+                word_key = self.letter_map_to_words[wordi][0]
                 if self.letter_map_count(letters_left) == 0:
                     # There are no remaining letters, so we have a result
                     for word in words:
@@ -162,11 +164,10 @@ class AnagramFinder():
                 else:
                     # There are remaining letters, so we have to see what words
                     # can be found in them, combining the results with this word
-                    next_find = self.search_wordtree(letters_left)
+                    next_find = self.search_wordtree(letters_left, word_key)
                     for word in words:
                         for n in next_find:
-                            if word <= n:
-                                self.add_to_results(results, wordi, word + ' ' + n)
+                            self.add_to_results(results, wordi, word + ' ' + n)
             # if self.caching_enabled:
             #     self.clear_cache()
 
@@ -181,12 +182,13 @@ class AnagramFinder():
 
         return self.results_as_list(results)
 
-    def search_wordtree(self, letter_map):
+    def search_wordtree(self, letter_map, comparison_key):
         results = []
 
-        for tree_pointer in self.find_words(letter_map, self.word_tree):
+        for tree_pointer in self.find_words(letter_map, comparison_key, self.word_tree):
             word_letter_map = tree_pointer['letter_map']
             words = tree_pointer['words']
+            word_key = tree_pointer['key']
             letters_left = letter_map.copy()
             for l in word_letter_map:
                 letters_left[l] -= word_letter_map[l]
@@ -195,15 +197,16 @@ class AnagramFinder():
             if len(letters_left) == 0:
                 results.extend(words)
             else:
-                next_find = self.search_wordtree(letters_left)
+                next_find = self.search_wordtree(letters_left, word_key)
                 for word in words:
                     for n in next_find:
-                        if word <= n:
-                            results.append(word + ' ' + n)
+                        results.append(word + ' ' + n)
 
         return results
 
-    def find_words(self, letter_map, tree_pointer):
+    def find_words(self, letter_map, comparison_key, tree_pointer):
+        if 'key' in tree_pointer and not self.compare_keys(comparison_key, tree_pointer['key']):
+            return []
         results = []
 
         if 'words' in tree_pointer:
@@ -215,7 +218,7 @@ class AnagramFinder():
                 new_letter_map[l] -= 1
                 if new_letter_map[l] == 0:
                     del new_letter_map[l]
-                results.extend(self.find_words(new_letter_map, tree_pointer[l]))
+                results.extend(self.find_words(new_letter_map, comparison_key, tree_pointer[l]))
 
         return results
 
@@ -278,11 +281,14 @@ class AnagramFinder():
     def letter_map_to_key(self, letter_map):
         return ''.join([l * n for l, n in sorted(letter_map.items())])
 
+    def compare_keys(self, key1, key2):
+        l = min(len(key1), len(key2))
+        return key1[0:l] <= key2[0:l]
+
     def sort_results(self, results):
         new_result = set()
         for result in results:
-            new_result.add(result)
-            #new_result.add(' '.join(sorted(result.split(' '))))
+            new_result.add(' '.join(sorted(result.split(' '))))
         return sorted(list(new_result))
 
 
