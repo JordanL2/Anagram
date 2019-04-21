@@ -115,6 +115,7 @@ class AnagramFinder():
                     tree_pointer[l] = {}
                 tree_pointer = tree_pointer[l]
             tree_pointer['words'] = lmw[2]
+            tree_pointer['letter_map'] = lmw[1]
         #pprint.PrettyPrinter(indent=4).pprint(self.word_tree)
 
     def search_wordlist(self, letter_map, t, max_t, display=None):
@@ -183,20 +184,22 @@ class AnagramFinder():
     def search_wordtree(self, letter_map):
         results = []
 
-        for word in self.find_words(letter_map, self.word_tree):
-            word_letter_map = self.word_to_letter_map(word)
+        for tree_pointer in self.find_words(letter_map, self.word_tree):
+            word_letter_map = tree_pointer['letter_map']
+            words = tree_pointer['words']
             letters_left = letter_map.copy()
             for l in word_letter_map:
                 letters_left[l] -= word_letter_map[l]
                 if letters_left[l] == 0:
                     del letters_left[l]
             if len(letters_left) == 0:
-                results.append(word)
+                results.extend(words)
             else:
                 next_find = self.search_wordtree(letters_left)
-                for n in next_find:
-                    if word <= n:
-                        results.append(word + ' ' + n)
+                for word in words:
+                    for n in next_find:
+                        if word <= n:
+                            results.append(word + ' ' + n)
 
         return results
 
@@ -204,7 +207,7 @@ class AnagramFinder():
         results = []
 
         if 'words' in tree_pointer:
-            results.extend(tree_pointer['words'])
+            results.append(tree_pointer)
         
         for l in letter_map:
             if l in tree_pointer:
