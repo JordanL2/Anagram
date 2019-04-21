@@ -23,29 +23,12 @@ class AnagramFinder():
         self.result_batch_size = 1000
 
         # Load dictionary of words
-        self.normalised_word_map = {}
+        self.words = []
         f = open(filename)
         for line in f:
             word = line.strip()
-            letter_map = self.word_to_letter_map(word)
-            key = self.letter_map_to_key(letter_map)
-            if key not in self.normalised_word_map:
-                self.normalised_word_map[key] = (key, letter_map, [])
-            self.normalised_word_map[key][2].append(word)
+            self.words.append(word)
         f.close()
-        
-        # Sort the word list by word length, longest words first
-        self.letter_map_to_words = sorted(self.normalised_word_map.values(), key=lambda x: len(x[0]), reverse=True)
-        self.letter_map_to_words_count = len(self.letter_map_to_words)
-        self.letter_map_reverse = dict([(l[0], i) for i, l in enumerate(self.letter_map_to_words)])
-
-        # Index of word list by length, so when we only have eg 5 letters,
-        # we can jump to the part of the list with words of that length
-        self.word_length_index = {}
-        for i, lmw in enumerate(self.letter_map_to_words):
-            l = len(lmw[0])
-            if l not in self.word_length_index:
-                self.word_length_index[l] = i
 
     def find(self, letters, display=None):
         # Turn string into a map of each letter and the number of times it occurs
@@ -86,6 +69,8 @@ class AnagramFinder():
         return results
 
     def do_proc(self, t, max_t, queue, letter_map, display):
+        self.init_wordlist(letter_map)
+
         self.result_cache = {}
         results = self.search_wordlist(letter_map, t, max_t, t, 0, display)
         for i in range(0, len(results), self.result_batch_size):
@@ -94,6 +79,32 @@ class AnagramFinder():
                 queue.put(results[i:])
             else:
                 queue.put(results[i:next_i])
+
+    def init_wordlist(self, letter_map):
+        # Create a list of all words organised by the letters they contain,
+        # so words that are anagrams of each other are grouped together
+        self.normalised_word_map = {}
+        for word in self.words:
+            word_letter_map = self.word_to_letter_map(word)
+            found, letters_left = self.word_in_letters(word_letter_map, letter_map)
+            if found:
+                key = self.letter_map_to_key(word_letter_map)
+                if key not in self.normalised_word_map:
+                    self.normalised_word_map[key] = (key, word_letter_map, [])
+                self.normalised_word_map[key][2].append(word)
+
+        # Sort the word list by word length, longest words first
+        self.letter_map_to_words = sorted(self.normalised_word_map.values(), key=lambda x: len(x[0]), reverse=True)
+        self.letter_map_to_words_count = len(self.letter_map_to_words)
+        self.letter_map_reverse = dict([(l[0], i) for i, l in enumerate(self.letter_map_to_words)])
+
+        # Index of word list by length, so when we only have eg 5 letters,
+        # we can jump to the part of the list with words of that length
+        self.word_length_index = {}
+        for i, lmw in enumerate(self.letter_map_to_words):
+            l = len(lmw[0])
+            if l not in self.word_length_index:
+                self.word_length_index[l] = i
 
     def search_wordlist(self, letter_map, t, max_t, start, level, display=None):
         toplevel = level == 0
