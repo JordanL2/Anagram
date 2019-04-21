@@ -41,6 +41,12 @@ class AnagramFinder():
         results = self.multiprocess_job(self.do_proc, args)
         return self.sort_results(results)
 
+    def sort_results(self, results):
+        new_result = set()
+        for result in results:
+            new_result.add(result)
+        return sorted(list(new_result))
+
     def multiprocess_job(self, target, args):
         # Start a process for each set of arguments
         max_t = len(args)
@@ -100,14 +106,6 @@ class AnagramFinder():
         self.letter_map_to_words = sorted(self.normalised_word_map.values(), key=lambda x: len(x[0]), reverse=True)
         self.letter_map_to_words_count = len(self.letter_map_to_words)
 
-        # Index of word list by length, so when we only have eg 5 letters,
-        # we can jump to the part of the list with words of that length
-        self.word_length_index = {}
-        for i, lmw in enumerate(self.letter_map_to_words):
-            l = len(lmw[0])
-            if l not in self.word_length_index:
-                self.word_length_index[l] = i
-
         # Make the word tree
         self.word_tree = {}
         for lmw in self.letter_map_to_words:
@@ -121,19 +119,6 @@ class AnagramFinder():
             tree_pointer['words'] = lmw[2]
 
     def search_wordlist(self, letter_map, t, max_t, display=None):
-        # Get total number of letters we're searching
-        letter_count = self.letter_map_count(letter_map)
-
-        # If possible, we can jump to the part of the word list with
-        # the words that have the number of letters that we're searching
-        if letter_count in self.word_length_index:
-            if self.word_length_index[letter_count] > t:
-                rem = t % max_t
-                t = self.word_length_index[letter_count]
-                start_rem = t % max_t
-                rem_diff = rem - start_rem
-                t += rem_diff
-
         results = []
 
         for wordi in range(t, self.letter_map_to_words_count, max_t):
@@ -146,7 +131,7 @@ class AnagramFinder():
             if found:
                 words = self.letter_map_to_words[wordi][2]
                 word_key = self.letter_map_to_words[wordi][0]
-                if self.letter_map_count(letters_left) == 0:
+                if len(letters_left) == 0:
                     # There are no remaining letters, so we have a result
                     for word in words:
                         results.append(word)
@@ -178,12 +163,12 @@ class AnagramFinder():
 
         results = []
 
-        these_results = self.find_words(letter_map, comparison_key, self.word_tree)
-        these_results.sort(key=lambda x: self.normalise_key(x[1]['key']))
+        find_word_results = self.find_words(letter_map, comparison_key, self.word_tree)
+        find_word_results.sort(key=lambda x: self.normalise_key(x[1]['key']))
 
-        for tree_pointer_result in these_results:
-            letters_left = tree_pointer_result[0]
-            tree_pointer = tree_pointer_result[1]
+        for find_word_result in find_word_results:
+            letters_left = find_word_result[0]
+            tree_pointer = find_word_result[1]
             words = tree_pointer['words']
             word_key = tree_pointer['key']
             if self.caching_enabled and cache_stop is not None and not self.key_is_after(cache_stop, word_key) and key in self.result_cache:
@@ -278,9 +263,6 @@ class AnagramFinder():
                 letter_map[letter] += 1
         return letter_map
 
-    def letter_map_count(self, letter_map):
-        return sum(letter_map.values())
-
     def letter_map_to_key(self, letter_map):
         return ''.join([l * n for l, n in sorted(letter_map.items())])
 
@@ -297,12 +279,6 @@ class AnagramFinder():
 
     def normalise_key(self, key):
         return key + '|' * (self.max_key_size - len(key))
-
-    def sort_results(self, results):
-        new_result = set()
-        for result in results:
-            new_result.add(result)
-        return sorted(list(new_result))
 
 
 def output(t, i, n):
