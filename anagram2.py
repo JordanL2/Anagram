@@ -117,7 +117,6 @@ class AnagramFinder():
             tree_pointer['key'] = lmw[0]
             tree_pointer['letter_map'] = lmw[1]
             tree_pointer['words'] = lmw[2]
-        #pprint.PrettyPrinter(indent=4).pprint(self.word_tree)
 
     def search_wordlist(self, letter_map, t, max_t, display=None):
         # key = self.letter_map_to_key(letter_map)
@@ -160,14 +159,15 @@ class AnagramFinder():
                 if self.letter_map_count(letters_left) == 0:
                     # There are no remaining letters, so we have a result
                     for word in words:
-                        self.add_to_results(results, wordi, word)
+                        results.append(word)
                 else:
                     # There are remaining letters, so we have to see what words
                     # can be found in them, combining the results with this word
                     next_find = self.search_wordtree(letters_left, word_key)
                     for word in words:
                         for n in next_find:
-                            self.add_to_results(results, wordi, word + ' ' + n)
+                            results.append(' '.join(sorted((word + ' ' + n).split(' '))))
+
             # if self.caching_enabled:
             #     self.clear_cache()
 
@@ -180,7 +180,7 @@ class AnagramFinder():
         #     elif self.result_cache[key][1] > start:
         #         self.result_cache[key] = [results, start, self.result_cache[key][2] + 1]
 
-        return self.results_as_list(results)
+        return results
 
     def search_wordtree(self, letter_map, comparison_key):
         results = []
@@ -189,11 +189,7 @@ class AnagramFinder():
             word_letter_map = tree_pointer['letter_map']
             words = tree_pointer['words']
             word_key = tree_pointer['key']
-            letters_left = letter_map.copy()
-            for l in word_letter_map:
-                letters_left[l] -= word_letter_map[l]
-                if letters_left[l] == 0:
-                    del letters_left[l]
+            letters_left = self.letter_map_subtract(letter_map, word_letter_map)
             if len(letters_left) == 0:
                 results.extend(words)
             else:
@@ -205,7 +201,7 @@ class AnagramFinder():
         return results
 
     def find_words(self, letter_map, comparison_key, tree_pointer):
-        if 'key' in tree_pointer and not self.compare_keys(comparison_key, tree_pointer['key']):
+        if 'key' in tree_pointer and self.key_is_after(comparison_key, tree_pointer['key']):
             return []
         results = []
 
@@ -221,15 +217,6 @@ class AnagramFinder():
                 results.extend(self.find_words(new_letter_map, comparison_key, tree_pointer[l]))
 
         return results
-
-    def add_to_results(self, results, i, result):
-        results.append((i, result))
-
-    def merge_results(self, results1, results2):
-        results1.extend(results2)
-
-    def results_as_list(self, results, start=0):
-        return [r[1] for r in results if r[0] >= start]
 
     def get_cache_size(self):
         return len(self.result_cache)
@@ -258,12 +245,7 @@ class AnagramFinder():
         for letter in word_letter_map.keys():
             if letter not in letter_map or word_letter_map[letter] > letter_map[letter]:
                 return False, None
-        letters_left = letter_map.copy()
-        for letter in word_letter_map.keys():
-            letters_left[letter] -= word_letter_map[letter]
-            if letters_left[letter] == 0:
-                del letters_left[letter]
-        return True, letters_left
+        return True, self.letter_map_subtract(letter_map, word_letter_map)
 
     def word_to_letter_map(self, word):
         letter_map = {}
@@ -281,14 +263,24 @@ class AnagramFinder():
     def letter_map_to_key(self, letter_map):
         return ''.join([l * n for l, n in sorted(letter_map.items())])
 
-    def compare_keys(self, key1, key2):
-        l = min(len(key1), len(key2))
-        return key1[0:l] <= key2[0:l]
+    def letter_map_subtract(self, letter_map1, letter_map2):
+        new_letter_map = letter_map1.copy()
+        for letter in letter_map2.keys():
+            new_letter_map[letter] -= letter_map2[letter]
+            if new_letter_map[letter] == 0:
+                del new_letter_map[letter]
+        return new_letter_map
+
+    def key_is_after(self, key1, key2):
+        l = max(len(key1), len(key2))
+        key1 += '|' * (l - len(key1))
+        key2 += '|' * (l - len(key2))
+        return key1 > key2
 
     def sort_results(self, results):
         new_result = set()
         for result in results:
-            new_result.add(' '.join(sorted(result.split(' '))))
+            new_result.add(result)
         return sorted(list(new_result))
 
 
