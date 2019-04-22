@@ -153,7 +153,6 @@ class AnagramFinder():
     def search_wordtree(self, letter_map, start_key):
         key = self.letter_map_to_key(letter_map)
         cache_stop_key = None
-        cache_stop_found_end = False
         if self.caching_enabled and key in self.result_cache:
             self.result_cache[key][2] += 1
             if self.result_cache[key][1] <= start_key:
@@ -172,10 +171,6 @@ class AnagramFinder():
             tree_pointer = find_word_result[1]
             words = tree_pointer['words']
             word_key = tree_pointer['key']
-            if self.caching_enabled and cache_stop_key is not None and word_key >= cache_stop_key and key in self.result_cache:
-                self.merge_results(results, self.result_cache[key][0])
-                cache_stop_found_end = True
-                break
             if len(letters_left) == 0:
                 self.add_results(results, words, word_key)
             else:
@@ -186,7 +181,7 @@ class AnagramFinder():
                         results_to_add.append(word + ' ' + n)
                 self.add_results(results, results_to_add, word_key)
 
-        if cache_stop_key is not None and not cache_stop_found_end:
+        if cache_stop_key:
             self.merge_results(results, self.result_cache[key][0])
 
         if self.caching_enabled:
