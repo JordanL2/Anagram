@@ -197,12 +197,10 @@ class AnagramFinder():
         if 'words' in tree_pointer:
             results.append((letter_map, tree_pointer))
         
-        key = tree_pointer['key']
-
         for l in letter_map:
             if l in tree_pointer:
-                new_key = key + l
-                if start_key <= self.key_assume_late(new_key) and (stop_key is None or stop_key >= new_key):
+                next_key = tree_pointer[l]['key']
+                if start_key <= self.key_assume_late(next_key) and (stop_key is None or stop_key >= next_key):
                     new_letter_map = letter_map.copy()
                     new_letter_map[l] -= 1
                     if new_letter_map[l] == 0:
