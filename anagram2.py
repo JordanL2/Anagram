@@ -180,7 +180,7 @@ class AnagramFinder():
             words = tree_pointer['words']
             word_key = tree_pointer['key']
             if len(letters_left) == 0:
-                self.add_results(results, words, word_key)
+                results.append((word_key, words))
             else:
                 next_find, next_find_start = self.search_wordtree(letters_left, word_key)
                 results_to_add = []
@@ -189,10 +189,11 @@ class AnagramFinder():
                         for word in words:
                             for nn in n[1]:
                                 results_to_add.append(word + ' ' + nn)
-                self.add_results(results, results_to_add, word_key)
+                if len(results_to_add) > 0:
+                    results.append((word_key, results_to_add))
 
         if cache_stop_key:
-            self.merge_results(results, self.result_cache[key][0])
+            results.extend(self.result_cache[key][0])
 
         if self.caching_enabled:
             if key not in self.result_cache:
@@ -216,18 +217,8 @@ class AnagramFinder():
                         del new_letter_map[l]
                     self.find_words(new_letter_map, start_key, stop_key, tree_pointer[l], results)
 
-    def add_results(self, results, results_to_add, start_key):
-        if len(results_to_add) > 0:
-            results.append((start_key, results_to_add))
-
-    def merge_results(self, results1, results2):
-        results1.extend(results2)
-
-    def get_cache_size(self):
-        return len(self.result_cache)
-
     def clear_cache(self):
-        cache_size = self.get_cache_size()
+        cache_size = len(self.result_cache)
         if cache_size > self.cache_limit:
             amount_to_remove = (cache_size - self.cache_limit) + (self.cache_limit * self.cache_clear_fraction)
             cache_usage = {}
