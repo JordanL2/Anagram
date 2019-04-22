@@ -163,8 +163,6 @@ class AnagramFinder():
         results = []
 
         find_word_results = self.find_words(letter_map, start_key, cache_stop_key, self.word_tree)
-        if self.caching_enabled and cache_stop_key is not None:
-            find_word_results.sort(key=lambda x: x[1]['key'])
 
         for find_word_result in find_word_results:
             letters_left = find_word_result[0]
