@@ -109,11 +109,11 @@ class AnagramFinder():
         self.word_tree = {}
         for lmw in self.letter_map_to_words:
             tree_pointer = self.word_tree
-            for l in lmw[0]:
+            for i, l in enumerate(lmw[0]):
                 if l not in tree_pointer:
                     tree_pointer[l] = {}
                 tree_pointer = tree_pointer[l]
-            tree_pointer['key'] = lmw[0]
+                tree_pointer['key'] = lmw[0][0:i + 1]
             tree_pointer['letter_map'] = lmw[1]
             tree_pointer['words'] = lmw[2]
 
