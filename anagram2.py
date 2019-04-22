@@ -17,9 +17,6 @@ class AnagramFinder():
         self.cache_limit = 1000000
         self.cache_clear_fraction = 0.1
 
-        self.fast_path_enabled = True
-        self.fast_path_iter_rel_speed = 0.3
-
         self.result_batch_size = 1000
 
         self.max_key_size = 30
@@ -105,9 +102,9 @@ class AnagramFinder():
         self.letter_map_to_words = sorted(self.normalised_word_map.values(), key=lambda x: len(x[0]), reverse=True)
         self.letter_map_to_words_count = len(self.letter_map_to_words)
 
-        # Make the word tree
+    def init_wordtree(self, letter_map_list):
         self.word_tree = {}
-        for lmw in self.letter_map_to_words:
+        for lmw in letter_map_list:
             tree_pointer = self.word_tree
             for i, l in enumerate(lmw[0]):
                 if l not in tree_pointer:
@@ -133,6 +130,15 @@ class AnagramFinder():
                     for word in words:
                         results.append(word)
                 else:
+                    # Make the word tree, using only words that can be made from the remaining letters
+                    new_letter_map_list = []
+                    for lmw in self.letter_map_to_words:
+                        if lmw[0] >= word_key:
+                            new_found, nl = self.word_in_letters(lmw[1], letters_left)
+                            if new_found:
+                                new_letter_map_list.append(lmw)
+                    self.init_wordtree(new_letter_map_list)
+
                     # There are remaining letters, so we have to see what words
                     # can be found in them, combining the results with this word
                     next_find = self.search_wordtree(letters_left, word_key)
