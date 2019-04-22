@@ -163,7 +163,8 @@ class AnagramFinder():
 
         results = []
 
-        find_word_results = self.find_words(letter_map, start_key, cache_stop_key, self.word_tree)
+        find_word_results = []
+        self.find_words(letter_map, start_key, cache_stop_key, self.word_tree, find_word_results)
 
         for find_word_result in find_word_results:
             letters_left = find_word_result[0]
@@ -191,9 +192,7 @@ class AnagramFinder():
 
         return self.results_as_list(results)
 
-    def find_words(self, letter_map, start_key, stop_key, tree_pointer):
-        results = []
-
+    def find_words(self, letter_map, start_key, stop_key, tree_pointer, results):
         if 'words' in tree_pointer:
             results.append((letter_map, tree_pointer))
         
@@ -205,9 +204,7 @@ class AnagramFinder():
                     new_letter_map[l] -= 1
                     if new_letter_map[l] == 0:
                         del new_letter_map[l]
-                    results.extend(self.find_words(new_letter_map, start_key, stop_key, tree_pointer[l]))
-
-        return results
+                    self.find_words(new_letter_map, start_key, stop_key, tree_pointer[l], results)
 
     def add_results(self, results, results_to_add, start_key):
         if len(results_to_add) > 0:
