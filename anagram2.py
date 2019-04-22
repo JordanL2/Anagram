@@ -153,6 +153,7 @@ class AnagramFinder():
     def search_wordtree(self, letter_map, start_key):
         key = self.letter_map_to_key(letter_map)
         cache_stop_key = None
+        cache_stop_found_end = False
         if self.caching_enabled and key in self.result_cache:
             self.result_cache[key][2] += 1
             if self.result_cache[key][1] <= start_key:
@@ -162,7 +163,7 @@ class AnagramFinder():
 
         results = []
 
-        find_word_results = self.find_words(letter_map, start_key, self.word_tree)
+        find_word_results = self.find_words(letter_map, start_key, cache_stop_key, self.word_tree)
         if self.caching_enabled and cache_stop_key is not None:
             find_word_results.sort(key=lambda x: x[1]['key'])
 
@@ -173,6 +174,7 @@ class AnagramFinder():
             word_key = tree_pointer['key']
             if self.caching_enabled and cache_stop_key is not None and word_key >= cache_stop_key and key in self.result_cache:
                 self.merge_results(results, self.result_cache[key][0])
+                cache_stop_found_end = True
                 break
             if len(letters_left) == 0:
                 self.add_results(results, words, word_key)
@@ -184,6 +186,9 @@ class AnagramFinder():
                         results_to_add.append(word + ' ' + n)
                 self.add_results(results, results_to_add, word_key)
 
+        if cache_stop_key is not None and not cache_stop_found_end:
+            self.merge_results(results, self.result_cache[key][0])
+
         if self.caching_enabled:
             if key not in self.result_cache:
                 self.result_cache[key] = [results, start_key, 0]
@@ -192,9 +197,12 @@ class AnagramFinder():
 
         return self.results_as_list(results)
 
-    def find_words(self, letter_map, start_key, tree_pointer):
-        if 'key' in tree_pointer and start_key > self.key_assume_late(tree_pointer['key']):
-            return []
+    def find_words(self, letter_map, start_key, stop_key, tree_pointer):
+        if 'key' in tree_pointer:
+            if start_key > self.key_assume_late(tree_pointer['key']):
+                return []
+            if stop_key is not None and stop_key < tree_pointer['key']:
+                return []
         results = []
 
         if 'words' in tree_pointer:
@@ -206,7 +214,7 @@ class AnagramFinder():
                 new_letter_map[l] -= 1
                 if new_letter_map[l] == 0:
                     del new_letter_map[l]
-                results.extend(self.find_words(new_letter_map, start_key, tree_pointer[l]))
+                results.extend(self.find_words(new_letter_map, start_key, stop_key, tree_pointer[l]))
 
         return results
 
