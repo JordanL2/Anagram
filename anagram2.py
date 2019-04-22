@@ -106,7 +106,7 @@ class AnagramFinder():
         self.letter_map_to_words_count = len(self.letter_map_to_words)
 
         # Make the word tree
-        self.word_tree = {'key': ''}
+        self.word_tree = {}
         for lmw in self.letter_map_to_words:
             tree_pointer = self.word_tree
             for i, l in enumerate(lmw[0]):
