@@ -122,8 +122,6 @@ class AnagramFinder():
 
         for wordi in range(t, self.letter_map_to_words_count, max_t):
             word_letter_map = self.letter_map_to_words[wordi][1]
-            if display is not None:
-                display(t, wordi + 1, self.letter_map_to_words_count)
             # See if this word can be found in the letters we're searching,
             # and if so, what letters are left over afterwards
             found, letters_left = self.word_in_letters(word_letter_map, letter_map)
@@ -144,6 +142,9 @@ class AnagramFinder():
 
             if self.caching_enabled:
                 self.clear_cache()
+
+            if display is not None:
+                display(t, wordi + 1, self.letter_map_to_words_count)
 
         if display is not None:
             display(t, self.letter_map_to_words_count, self.letter_map_to_words_count)
