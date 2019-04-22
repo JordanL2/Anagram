@@ -202,7 +202,7 @@ class AnagramFinder():
         if 'words' in tree_pointer:
             results.append((letter_map, tree_pointer))
         
-        for l in sorted(letter_map):
+        for l in letter_map:
             if l in tree_pointer:
                 new_letter_map = letter_map.copy()
                 new_letter_map[l] -= 1
