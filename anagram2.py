@@ -155,7 +155,7 @@ class AnagramFinder():
         cache_stop_key = None
         if self.caching_enabled and key in self.result_cache:
             self.result_cache[key][2] += 1
-            if not self.key_is_after(self.result_cache[key][1], start_key):
+            if self.result_cache[key][1] <= start_key:
                 return self.results_as_list(self.result_cache[key][0], start_key)
             else:
                 cache_stop_key = self.result_cache[key][1]
@@ -164,14 +164,14 @@ class AnagramFinder():
 
         find_word_results = self.find_words(letter_map, start_key, self.word_tree)
         if self.caching_enabled and cache_stop_key is not None:
-            find_word_results.sort(key=lambda x: self.normalise_key(x[1]['key']))
+            find_word_results.sort(key=lambda x: x[1]['key'])
 
         for find_word_result in find_word_results:
             letters_left = find_word_result[0]
             tree_pointer = find_word_result[1]
             words = tree_pointer['words']
             word_key = tree_pointer['key']
-            if self.caching_enabled and cache_stop_key is not None and not self.key_is_after(cache_stop_key, word_key) and key in self.result_cache:
+            if self.caching_enabled and cache_stop_key is not None and word_key >= cache_stop_key and key in self.result_cache:
                 self.merge_results(results, self.result_cache[key][0])
                 break
             if len(letters_left) == 0:
@@ -187,13 +187,13 @@ class AnagramFinder():
         if self.caching_enabled:
             if key not in self.result_cache:
                 self.result_cache[key] = [results, start_key, 0]
-            elif self.key_is_after(self.result_cache[key][1], start_key):
+            elif self.result_cache[key][1] > start_key:
                 self.result_cache[key] = [results, start_key, self.result_cache[key][2] + 1]
 
         return self.results_as_list(results)
 
     def find_words(self, letter_map, start_key, tree_pointer):
-        if 'key' in tree_pointer and self.key_is_after(start_key, tree_pointer['key']):
+        if 'key' in tree_pointer and start_key > self.key_assume_late(tree_pointer['key']):
             return []
         results = []
 
@@ -210,17 +210,17 @@ class AnagramFinder():
 
         return results
 
-    def add_results(self, results, results_to_add, word_key):
+    def add_results(self, results, results_to_add, start_key):
         if len(results_to_add) > 0:
-            results.append((word_key, results_to_add))
+            results.append((start_key, results_to_add))
 
     def merge_results(self, results1, results2):
         results1.extend(results2)
 
-    def results_as_list(self, results, word_key=None):
+    def results_as_list(self, results, start_key=None):
         results_to_return = []
         for result in results:
-            if word_key is None or not self.key_is_after(word_key, result[0]):
+            if start_key is None or result[0] >= start_key:
                 results_to_return.extend(result[1])
         return results_to_return
 
@@ -277,10 +277,7 @@ class AnagramFinder():
                 del new_letter_map[letter]
         return new_letter_map
 
-    def key_is_after(self, key1, key2):
-        return self.normalise_key(key1) > self.normalise_key(key2)
-
-    def normalise_key(self, key):
+    def key_assume_late(self, key):
         return key + '|' * (self.max_key_size - len(key))
 
 
