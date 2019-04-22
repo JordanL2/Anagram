@@ -106,7 +106,7 @@ class AnagramFinder():
         self.letter_map_to_words_count = len(self.letter_map_to_words)
 
         # Make the word tree
-        self.word_tree = {}
+        self.word_tree = {'key': ''}
         for lmw in self.letter_map_to_words:
             tree_pointer = self.word_tree
             for i, l in enumerate(lmw[0]):
@@ -192,23 +192,22 @@ class AnagramFinder():
         return self.results_as_list(results)
 
     def find_words(self, letter_map, start_key, stop_key, tree_pointer):
-        if 'key' in tree_pointer:
-            if start_key > self.key_assume_late(tree_pointer['key']):
-                return []
-            if stop_key is not None and stop_key < tree_pointer['key']:
-                return []
         results = []
 
         if 'words' in tree_pointer:
             results.append((letter_map, tree_pointer))
         
+        key = tree_pointer['key']
+
         for l in letter_map:
             if l in tree_pointer:
-                new_letter_map = letter_map.copy()
-                new_letter_map[l] -= 1
-                if new_letter_map[l] == 0:
-                    del new_letter_map[l]
-                results.extend(self.find_words(new_letter_map, start_key, stop_key, tree_pointer[l]))
+                new_key = key + l
+                if start_key <= self.key_assume_late(new_key) and (stop_key is None or stop_key >= new_key):
+                    new_letter_map = letter_map.copy()
+                    new_letter_map[l] -= 1
+                    if new_letter_map[l] == 0:
+                        del new_letter_map[l]
+                    results.extend(self.find_words(new_letter_map, start_key, stop_key, tree_pointer[l]))
 
         return results
 
