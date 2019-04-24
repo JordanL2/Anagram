@@ -136,13 +136,11 @@ class AnagramFinder():
 
                     # There are remaining letters, so we have to see what words
                     # can be found in them, combining the results with this word
-                    next_find, next_find_start = self.search_wordtree(letters_left, word_key)
-                    for n in next_find:
-                        if next_find_start is None or n[0] >= next_find_start:
-                            for word in words:
-                                for nn in n[1]:
-                                    if word_key != n[0] or nn >= word:
-                                        results.append(' '.join(sorted((word + ' ' + nn).split(' '))))
+                    next_results, next_results_start = self.search_wordtree(letters_left, word_key)
+                    for next_result_block in next_results:
+                        if next_results_start is None or next_result_block[0] >= next_results_start:
+                            for next_result in next_result_block[1]:
+                                results.extend(self.expand_result([words] + next_result))
 
             if self.caching_enabled:
                 self.clear_cache()
@@ -154,6 +152,25 @@ class AnagramFinder():
             display(t, self.letter_map_to_words_count, self.letter_map_to_words_count)
 
         return results
+
+    def expand_result(self, results, i=0):
+        if i == len(results) - 1:
+            return [[r] for r in results[i]]
+
+        expanded_results = []
+        next_results = self.collapse_result(results, i + 1)
+        for word in results[i]:
+            for next_words in next_results:
+                if results[i] != results[i + 1] or next_words[0] >= word:
+                    expanded_results.append([word] + next_words)
+
+        if i == 0:
+            sorted_results = []
+            for result in expanded_results:
+                sorted_results.append(' '.join(sorted(result)))
+            return sorted_results
+
+        return expanded_results
 
     def search_wordtree(self, letter_map, start_key):
         key = self.letter_map_to_key(letter_map)
@@ -176,18 +193,16 @@ class AnagramFinder():
             words = tree_pointer['words']
             word_key = tree_pointer['key']
             if len(letters_left) == 0:
-                results.append((word_key, words))
+                results.append((word_key, [[words]]))
             else:
-                next_find, next_find_start = self.search_wordtree(letters_left, word_key)
-                results_to_add = []
-                for n in next_find:
-                    if next_find_start is None or n[0] >= next_find_start:
-                        for word in words:
-                            for nn in n[1]:
-                                if word_key != n[0] or nn >= word:
-                                    results_to_add.append(word + ' ' + nn)
-                if len(results_to_add) > 0:
-                    results.append((word_key, results_to_add))
+                next_results, next_results_start = self.search_wordtree(letters_left, word_key)
+                result_block = []
+                for next_result_block in next_results:
+                    if next_results_start is None or next_result_block[0] >= next_results_start:
+                        for next_result in next_result_block[1]:
+                            result_block.append([words] + next_result)
+                if len(result_block) > 0:
+                    results.append((word_key, result_block))
 
         if cache_stop_key:
             results.extend(self.result_cache[key][0])
