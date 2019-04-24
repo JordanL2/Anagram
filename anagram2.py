@@ -136,13 +136,13 @@ class AnagramFinder():
 
                     # There are remaining letters, so we have to see what words
                     # can be found in them, combining the results with this word
-                    next_find, next_find_start = self.search_wordtree(letters_left, word_key)
-                    for n in next_find:
-                        if next_find_start is None or n[0] >= next_find_start:
+                    next_results, next_results_start = self.search_wordtree(letters_left, word_key)
+                    for next_result_block in next_results:
+                        if next_results_start is None or next_result_block[0] >= next_results_start:
                             for word in words:
-                                for nn in n[1]:
-                                    if word_key != n[0] or nn >= word:
-                                        results.append(' '.join(sorted((word + ' ' + nn).split(' '))))
+                                for next_result in next_result_block[1]:
+                                    if word_key != next_result_block[0] or next_result >= word:
+                                        results.append(' '.join(sorted((word + ' ' + next_result).split(' '))))
 
             if self.caching_enabled:
                 self.clear_cache()
@@ -178,16 +178,16 @@ class AnagramFinder():
             if len(letters_left) == 0:
                 results.append((word_key, words))
             else:
-                next_find, next_find_start = self.search_wordtree(letters_left, word_key)
-                results_to_add = []
-                for n in next_find:
-                    if next_find_start is None or n[0] >= next_find_start:
+                next_results, next_results_start = self.search_wordtree(letters_left, word_key)
+                result_block = []
+                for next_result_block in next_results:
+                    if next_results_start is None or next_result_block[0] >= next_results_start:
                         for word in words:
-                            for nn in n[1]:
-                                if word_key != n[0] or nn >= word:
-                                    results_to_add.append(word + ' ' + nn)
-                if len(results_to_add) > 0:
-                    results.append((word_key, results_to_add))
+                            for next_result in next_result_block[1]:
+                                if word_key != next_result_block[0] or next_result >= word:
+                                    result_block.append(word + ' ' + next_result)
+                if len(result_block) > 0:
+                    results.append((word_key, result_block))
 
         if cache_stop_key:
             results.extend(self.result_cache[key][0])
