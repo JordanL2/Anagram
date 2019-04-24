@@ -136,11 +136,9 @@ class AnagramFinder():
 
                     # There are remaining letters, so we have to see what words
                     # can be found in them, combining the results with this word
-                    next_results, next_results_start = self.search_wordtree(letters_left, word_key)
-                    for next_result_block in next_results:
-                        if next_results_start is None or next_result_block[0] >= next_results_start:
-                            for next_result in next_result_block[1]:
-                                results.extend(self.expand_result([words] + next_result))
+                    next_results = self.search_wordtree(letters_left, word_key)
+                    if len(next_results) > 0:
+                        results.extend(self.expand_result((words, next_results), True))
 
             if self.caching_enabled:
                 self.clear_cache()
@@ -153,18 +151,21 @@ class AnagramFinder():
 
         return results
 
-    def expand_result(self, results, i=0):
-        if i == len(results) - 1:
-            return [[r] for r in results[i]]
+    def expand_result(self, result_pointer, top=False):
+        word_group = result_pointer[0]
+        next_result_pointers = result_pointer[1]
+        if next_result_pointers is None:
+            return [[w] for w in word_group]
 
         expanded_results = []
-        next_results = self.collapse_result(results, i + 1)
-        for word in results[i]:
-            for next_words in next_results:
-                if results[i] != results[i + 1] or next_words[0] >= word:
-                    expanded_results.append([word] + next_words)
+        for next_result_pointer in next_result_pointers:
+            next_results = self.expand_result(next_result_pointer)
+            for word in word_group:
+                for next_result in next_results:
+                    if word_group != next_result_pointer[0] or word <= next_result[0]:
+                        expanded_results.append([word] + next_result)
 
-        if i == 0:
+        if top:
             sorted_results = []
             for result in expanded_results:
                 sorted_results.append(' '.join(sorted(result)))
@@ -178,7 +179,7 @@ class AnagramFinder():
         if self.caching_enabled and key in self.result_cache:
             self.result_cache[key][2] += 1
             if self.result_cache[key][1] <= start_key:
-                return self.result_cache[key][0], start_key
+                return self.results_as_list(self.result_cache[key][0], start_key)
             else:
                 cache_stop_key = self.result_cache[key][1]
 
@@ -193,16 +194,11 @@ class AnagramFinder():
             words = tree_pointer['words']
             word_key = tree_pointer['key']
             if len(letters_left) == 0:
-                results.append((word_key, [[words]]))
+                results.append((word_key, (words, None)))
             else:
-                next_results, next_results_start = self.search_wordtree(letters_left, word_key)
-                result_block = []
-                for next_result_block in next_results:
-                    if next_results_start is None or next_result_block[0] >= next_results_start:
-                        for next_result in next_result_block[1]:
-                            result_block.append([words] + next_result)
-                if len(result_block) > 0:
-                    results.append((word_key, result_block))
+                next_results = self.search_wordtree(letters_left, word_key)
+                if len(next_results) > 0:
+                    results.append((word_key, (words, next_results)))
 
         if cache_stop_key:
             results.extend(self.result_cache[key][0])
@@ -213,7 +209,14 @@ class AnagramFinder():
             elif self.result_cache[key][1] > start_key:
                 self.result_cache[key] = [results, start_key, self.result_cache[key][2] + 1]
 
-        return results, None
+        return self.results_as_list(results)
+
+    def results_as_list(self, results, start_key=None):
+        result_list = []
+        for result in results:
+            if start_key is None or start_key <= result[0]:
+                result_list.append(result[1])
+        return result_list
 
     def find_words(self, letter_map, start_key, stop_key, tree_pointer, results):
         if 'words' in tree_pointer and start_key <= tree_pointer['key']:
