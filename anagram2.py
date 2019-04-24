@@ -35,13 +35,8 @@ class AnagramFinder():
 
         args = [[letter_map, display]] * self.proc_count
         results = self.multiprocess_job(self.do_proc, args)
-        return self.sort_results(results)
-
-    def sort_results(self, results):
-        new_result = set()
-        for result in results:
-            new_result.add(result)
-        return sorted(list(new_result))
+        
+        return sorted(results)
 
     def multiprocess_job(self, target, args):
         # Start a process for each set of arguments
@@ -146,7 +141,8 @@ class AnagramFinder():
                         if next_find_start is None or n[0] >= next_find_start:
                             for word in words:
                                 for nn in n[1]:
-                                    results.append(' '.join(sorted((word + ' ' + nn).split(' '))))
+                                    if word_key != n[0] or nn >= word:
+                                        results.append(' '.join(sorted((word + ' ' + nn).split(' '))))
 
             if self.caching_enabled:
                 self.clear_cache()
@@ -188,7 +184,8 @@ class AnagramFinder():
                     if next_find_start is None or n[0] >= next_find_start:
                         for word in words:
                             for nn in n[1]:
-                                results_to_add.append(word + ' ' + nn)
+                                if word_key != n[0] or nn >= word:
+                                    results_to_add.append(word + ' ' + nn)
                 if len(results_to_add) > 0:
                     results.append((word_key, results_to_add))
 
