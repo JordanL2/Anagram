@@ -204,13 +204,13 @@ class AnagramFinder():
         return results, None
 
     def find_words(self, letter_map, start_key, stop_key, tree_pointer, results):
-        if 'words' in tree_pointer:
+        if 'words' in tree_pointer and start_key <= tree_pointer['key']:
             results.append((letter_map, tree_pointer))
         
         for l in letter_map:
             if l in tree_pointer:
                 next_key = tree_pointer[l]['key']
-                if start_key <= self.key_assume_late(next_key) and (stop_key is None or stop_key >= next_key):
+                if start_key <= self.key_assume_late(next_key) and (stop_key is None or stop_key > next_key):
                     new_letter_map = letter_map.copy()
                     new_letter_map[l] -= 1
                     if new_letter_map[l] == 0:
