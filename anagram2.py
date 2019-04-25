@@ -2,7 +2,7 @@
 
 import sys
 import multiprocessing
-from queue import Empty
+from queue import Empty, Full
 from time import sleep
 
 
@@ -32,53 +32,95 @@ class AnagramFinder():
     def find(self, letters, display=None):
         # Turn string into a map of each letter and the number of times it occurs
         letter_map = self.word_to_letter_map(letters)
+        self.init_wordlist(letter_map)
 
-        args = [[letter_map, display]] * self.proc_count
-        results = self.multiprocess_job(self.do_proc, args)
+        args = [[letter_map]] * self.proc_count
+        results = self.multiprocess_job(self.do_proc, args, display)
         
         return sorted(results)
 
-    def multiprocess_job(self, target, args):
+    def multiprocess_job(self, target, args, display):
         # Start a process for each set of arguments
         max_t = len(args)
         procs = []
-        queue = multiprocessing.Queue()
+        queue_in = multiprocessing.Queue()
+        queue_out = multiprocessing.Queue()
         for t in range(0, max_t):
             proc = multiprocessing.Process(
                 target=target,
-                args=[t, max_t, queue] + args[t],
+                args=[t, queue_in, queue_out] + args[t],
                 daemon=True)
             proc.start()
             procs.append(proc)
 
-        # Read results from processes while waiting for them to finish
+        start = 0
+        end = self.letter_map_to_words_count
+
+        if display is not None:
+            display(0, 1)
+
         results = []
+        number_of_batches = 0
+        while start < end:
+            # Add a batch to the input queue for procs to read from
+            try:
+                batch_size = int((end - start) / max_t * 0.5)
+                if batch_size == 0:
+                    batch_size = 1
+                new_start = start + batch_size
+                if new_start > end:
+                    new_start = end
+                else:
+                    queue_in.put({'start': start, 'end': new_start}, block=False)
+                    start = new_start
+                    number_of_batches += 1
+            except Full:
+                pass
+            # Read results from queue just in case the output
+            # gets full while we're still loading up the input
+            try:
+                r = queue_out.get(block=False)
+                results.extend(r)
+            except Empty:
+                pass
+
+        # Finished, kill procs
+        for t in range(0, max_t):
+            queue_in.put({'quit': True}, block=True)
+            number_of_batches += 1
+        
+        # Read results while waiting for procs to end
         for proc in procs:
             while proc.is_alive():
+                if display is not None:
+                    display(number_of_batches - queue_in.qsize(), number_of_batches)
                 sleep(0.001)
                 while True:
                     try:
-                        r = queue.get(block=False)
+                        r = queue_out.get(block=False)
                         results.extend(r)
                     except Empty:
                         break
 
-        # Add the last of the queue to the results, and return them
-        while not queue.empty():
-            results.extend(queue.get())
         return results
 
-    def do_proc(self, t, max_t, queue, letter_map, display):
-        self.init_wordlist(letter_map)
-
+    def do_proc(self, t, queue_in, queue_out, letter_map):
         self.result_cache = {}
-        results = self.search_wordlist(letter_map, t, max_t, display)
-        for i in range(0, len(results), self.result_batch_size):
-            next_i = i + self.result_batch_size
-            if next_i >= len(results):
-                queue.put(results[i:])
-            else:
-                queue.put(results[i:next_i])
+        while True:
+            message = queue_in.get(block=True)
+            if 'start' in message:
+                start = message['start']
+                end = message['end']
+
+                results = self.search_wordlist(letter_map, start, end)
+                for i in range(0, len(results), self.result_batch_size):
+                    next_i = i + self.result_batch_size
+                    if next_i >= len(results):
+                        queue_out.put(results[i:])
+                    else:
+                        queue_out.put(results[i:next_i])
+            elif 'quit' in message:
+                break
 
     def init_wordlist(self, letter_map):
         # Create a list of all words organised by the letters they contain,
@@ -109,10 +151,10 @@ class AnagramFinder():
             tree_pointer['letter_map'] = lmw[1]
             tree_pointer['words'] = lmw[2]
 
-    def search_wordlist(self, letter_map, t, max_t, display=None):
+    def search_wordlist(self, letter_map, start, end):
         results = []
 
-        for wordi in range(t, self.letter_map_to_words_count, max_t):
+        for wordi in range(start, end):
             word_letter_map = self.letter_map_to_words[wordi][1]
             # See if this word can be found in the letters we're searching,
             # and if so, what letters are left over afterwards
@@ -146,12 +188,6 @@ class AnagramFinder():
 
             if self.caching_enabled:
                 self.clear_cache()
-
-            if display is not None:
-                display(t, wordi + 1, self.letter_map_to_words_count)
-
-        if display is not None:
-            display(t, self.letter_map_to_words_count, self.letter_map_to_words_count)
 
         return results
 
@@ -268,11 +304,8 @@ class AnagramFinder():
         return key + '|' * (self.max_key_size - len(key))
 
 
-def output(t, i, n):
-    line = '\r'
-    if t > 0:
-        line += ('\033[' + str(t * 8) + 'C')
-    line += "{:6.2f}%".format(i / n * 100)
+def output(i, n):
+    line = '\r' + "{:6.2f}%".format(i / n * 100)
     sys.stderr.write(line)
     sys.stderr.flush()
 
