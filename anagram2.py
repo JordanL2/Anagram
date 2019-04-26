@@ -87,7 +87,6 @@ class AnagramFinder():
         # Finished, kill procs
         for t in range(0, max_t):
             queue_in.put({'quit': True}, block=True)
-            number_of_batches += 1
         
         # Read results while waiting for procs to end
         for proc in procs:
